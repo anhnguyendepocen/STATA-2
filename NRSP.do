@@ -1,2 +1,0 @@
-set more off
-global 
