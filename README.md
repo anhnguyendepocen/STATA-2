@@ -4,7 +4,7 @@ Class 1: Basics;
 
 Class 2: Regression and IV;
 
-Class 3 covers some models used in macroeconomics such as VAR, simulation. 
+Class 3: Time Series analysis
 
 Reference:
 
