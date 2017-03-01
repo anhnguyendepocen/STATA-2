@@ -1,8 +1,8 @@
 # STATA Instrutions
 
-Class 1 is basic code. 
+Class 1: Basics; 
 
-Class 2 is a duplicate of Angrist and Keueger(1991)'s Paper. 
+Class 2: Regression and IV;
 
 Class 3 covers some models used in macroeconomics such as VAR, simulation. 
 
