@@ -1,0 +1,2 @@
+set more off
+global 
