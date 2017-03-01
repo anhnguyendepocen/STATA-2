@@ -1,0 +1,23 @@
+	(1)	(2)	(3)	(4)	(5)	(6)
+VARIABLES	IV	IV	IV	IV	LIML	GMM
+						
+education	0.107***	0.115***	0.106***	0.0703***	0.0731***	0.0698***
+	(0.0207)	(0.0210)	(0.0210)	(0.0103)	(0.0154)	(0.0102)
+central			-0.0189**	-0.00723	-0.00814	-0.00694
+			(0.00758)	(0.00458)	(0.00592)	(0.00454)
+married			0.234***	0.244***	0.243***	0.244***
+			(0.00663)	(0.00436)	(0.00537)	(0.00432)
+age_quarter			-0.000490	0.000437	0.000364	0.000438
+			(0.00133)	(0.00123)	(0.00127)	(0.00122)
+age_quarter2			-3.42e-05	-4.24e-05	-4.18e-05	-4.21e-05
+			(3.53e-05)	(3.46e-05)	(3.47e-05)	(3.44e-05)
+						
+Observations	375,787	375,787	375,787	375,787	375,787	375,787
+R-squared	0.080	0.077	0.118	0.149	0.149	0.149
+Region FE	NO	YES	YES	YES	YES	YES
+Birth Year FE	NO	YES	YES	YES	YES	YES
+Race FE	NO	NO	YES	YES	YES	YES
+State of birth FE	NO	NO	YES	YES	YES	YES
+Extended instr	NO	NO	NO	YES	YES	YES
+Robust standard errors in parentheses						
+*** p<0.01, ** p<0.05, * p<0.1						
