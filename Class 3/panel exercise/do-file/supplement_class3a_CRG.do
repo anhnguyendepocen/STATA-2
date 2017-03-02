@@ -10,7 +10,7 @@ clear all
 * Fertility (Eurostat)
 ***********************
 
-cd "C:\Users\Sony\Dropbox\Teaching\teaching stata\Class 3\panel\data"
+cd "H:\Class 3\panel\data"
 
 import excel using "demo_frate.xls"
 drop if _n<10
