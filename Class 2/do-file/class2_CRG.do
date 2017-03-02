@@ -76,10 +76,10 @@ clear all
 *******************************************
 * Define directories for data and output
 *******************************************
-global data "C:\Users\Claudia\Dropbox\Teaching\teaching Stata\Class 2\data"
-global data2 "C:\Users\roblesga\Desktop"
-global output "C:\Users\Claudia\Dropbox\Teaching\teaching Stata\Class 2\output"
-global output2 "C:\Users\roblesga\Desktop"
+global data "H:\Class 2\data"
+global data2 "C:\Desktop"
+global output "H:\Class 2\output"
+global output2 "C:\Desktop"
 
 *change directory
 cd "$data2"
