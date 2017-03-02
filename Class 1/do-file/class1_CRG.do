@@ -29,9 +29,9 @@ set more off
 * List of directories (using macros)
 * Macros are named containers for information of any kind. Macros come in two 
 * different flavours, local (or temporary) and global.
-local data "C:\Users\Claudia\Dropbox\Teaching\teaching Stata\Class 1\data"
-global data "C:\Users\Claudia\Dropbox\Teaching\teaching Stata\Class 1\data"
-global output "C:\Users\Claudia\Dropbox\Teaching\teaching Stata\Class 1\output"
+local data "H:\Class 1\data"
+global data "H:\Class 1\data"
+global output "H:\Class 1\output"
 * Global macros stay in the system and once set, can be accessed by all your commands.
 * Globals are called as ${global name}: eg ${data}.
 * Local macros and temporary objects are only created within a certain environment
