@@ -46,10 +46,10 @@ set more off
 clear all
 
 * Path for directory
-global data "C:\Users\Claudia\Dropbox\Teaching\teaching Stata\Class 3b\data"
-global data2 "C:\Users\roblesga\Desktop"
-global output "C:\Users\Claudia\Dropbox\Teaching\teaching Stata\Class 3b\output"
-global output2 "C:\Users\roblesga\Desktop"
+global data "H:\Class 3b\data"
+global data2 "C:\Desktop"
+global output "H:\Class 3b\output"
+global output2 "C:\Desktop"
 
 * Change directory
 cd "$data2"
