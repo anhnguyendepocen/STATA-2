@@ -1,0 +1,721 @@
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  H:\stata\Chettylab\output\mobility.log
+  log type:  text
+ opened on:   5 Mar 2017, 20:54:59
+
+. 
+. /*Merge cz_names.csv*/
+. cd "$data"
+H:\stata\Chettylab\data
+
+. insheet using "cz_names.csv", delimiter(",") names clear
+(2 vars, 741 obs)
+
+. save "cz_names.dta", replace
+file cz_names.dta saved
+
+. insheet using "cz_level_data.csv", delimiter(",") names clear
+(15 vars, 741 obs)
+
+. merge 1:1 cz using "cz_names.dta"
+
+    Result                           # of obs.
+    -----------------------------------------
+    not matched                             0
+    matched                               741  (_merge==3)
+    -----------------------------------------
+
+. drop _merge
+
+. order czname, a(cz)  //order czname after cz
+
+. save "cz_merge.dta", replace
+file cz_merge.dta saved
+
+. 
+. cd "$output"
+H:\stata\Chettylab\output
+
+. /*Q1 Difference of perm_res_rank_p25 from the national mean*/
+. //install _GWTMEAN to caculate weighted mean or manually
+. capture ssc install _GWTMEAN  //install package to caculate weighted mean
+
+. tempvar weight_mean
+
+. egen `weight_mean'= wtmean(perm_res_rank_p25) if perm_res_rank_p25 != ., weight(population)
+(23 missing values generated)
+
+. gen dif_rank = perm_res_rank_p25 - `weight_mean'
+(23 missing values generated)
+
+. drop `weight_mean'
+
+. sort dif_rank, stable
+
+. //Grapgh hbar
+. preserve
+
+. drop if dif_rank==.
+(23 observations deleted)
+
+. keep if (_n>=_N-4)|(_n<=5)
+(708 observations deleted)
+
+. gen no_rank=_n
+
+. gen cz_name_state=czname+","+stateabbrv
+
+. gen last_five = 1 if _n > 5
+(5 missing values generated)
+
+. replace last_five = 0 if _n <=5
+(5 real changes made)
+
+. export delimited cz-last_five using "Rgraph.csv",replace
+file Rgraph.csv saved
+
+. 
+. //Raw graph by STATA
+. graph hbar dif_rank , over(cz_name_state, sort(dif_rank) descending) graphregion(color(white))  ///
+>                         ytitle("Diiference from National Mean") scheme(sj)  ///
+>                         saving(dif_rank, replace) 
+(file dif_rank.gph saved)
+
+. graph export dif_rank.pdf, replace
+(file dif_rank.pdf written in PDF format)
+
+. //describe other variables of the 10
+. collapse african_american_share - median_house_value [pw=population], by(last_five)
+
+. export delimited using "tenDes.csv", replace
+file tenDes.csv saved
+
+. restore
+
+. 
+. /*Q3*/
+. //install maptile spmap geo_list
+. capture ssc install maptile
+
+. capture ssc install spmap
+
+. maptile_install using "http://files.michaelstepner.com/geo_state.zip"
+
+h:\ado\personal\maptile_geographies
+    can't overwrite "state_coords_clean.dta"; skipping
+    can't overwrite "state_database_clean.dta"; skipping
+    can't overwrite "state_maptile.ado"; skipping
+    can't overwrite "state_maptile.smcl"; skipping
+successfully unzipped temp.zip to current directory
+
+To see the help file of the geography template, run:
+    maptile_geohelp geoname
+
+. 
+. //Map for state level data
+. preserve
+
+. drop if perm_res_rank_p25==.
+(23 observations deleted)
+
+. collapse perm_res_rank_p25 [pw=population], by(stateabbrv)
+
+. rename stateabbrv state
+
+. maptile perm_res_rank_p25, geo(state) propcolor revcolor
+
+. graph export state_level.pdf, replace
+(file state_level.pdf written in PDF format)
+
+. restore
+
+. 
+. /*Q5 Regressions*/
+. capture ssc install estout   //install estout for stylelized output
+
+. drop if (total_exposure_effect_p25==.)|(perm_res_rank_p25==.)  
+(146 observations deleted)
+
+. //generate standard error, then regress
+. foreach var of varlist african_american_share - median_house_value {
+  2.         egen std_`var'=std(`var') 
+  3.         eststo: reg total_exposure_effect_p25 std_`var', robust   //eststo: restore reg result
+  4.         eststo: reg total_exposure_effect_p25 std_`var', robust cluster(state_id)
+  5.         eststo: reg perm_res_rank_p25 std_`var', robust
+  6.         eststo: reg perm_res_rank_p25 std_`var', robust cluster(state_id)
+  7. } 
+
+Linear regression                               Number of obs     =        595
+                                                F(1, 593)         =      62.22
+                                                Prob > F          =     0.0000
+                                                R-squared         =     0.0611
+                                                Root MSE          =     11.892
+
+--------------------------------------------------------------------------------------------
+                           |               Robust
+ total_exposure_effect_p25 |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+---------------------------+----------------------------------------------------------------
+std_african_american_share |  -3.031769    .384354    -7.89   0.000     -3.78663   -2.276908
+                     _cons |   3.632374   .4875266     7.45   0.000     2.674886    4.589863
+--------------------------------------------------------------------------------------------
+(est1 stored)
+
+Linear regression                               Number of obs     =        595
+                                                F(1, 50)          =      30.94
+                                                Prob > F          =     0.0000
+                                                R-squared         =     0.0611
+                                                Root MSE          =     11.892
+
+                                            (Std. Err. adjusted for 51 clusters in state_id)
+--------------------------------------------------------------------------------------------
+                           |               Robust
+ total_exposure_effect_p25 |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+---------------------------+----------------------------------------------------------------
+std_african_american_share |  -3.031769   .5450608    -5.56   0.000    -4.126556   -1.936982
+                     _cons |   3.632374    .810162     4.48   0.000     2.005116    5.259633
+--------------------------------------------------------------------------------------------
+(est2 stored)
+
+Linear regression                               Number of obs     =        595
+                                                F(1, 593)         =     693.52
+                                                Prob > F          =     0.0000
+                                                R-squared         =     0.4609
+                                                Root MSE          =     3.8547
+
+--------------------------------------------------------------------------------------------
+                           |               Robust
+         perm_res_rank_p25 |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+---------------------------+----------------------------------------------------------------
+std_african_american_share |  -3.561288   .1352315   -26.33   0.000    -3.826879   -3.295697
+                     _cons |   46.21472   .1580274   292.45   0.000     45.90436    46.52508
+--------------------------------------------------------------------------------------------
+(est3 stored)
+
+Linear regression                               Number of obs     =        595
+                                                F(1, 50)          =     116.88
+                                                Prob > F          =     0.0000
+                                                R-squared         =     0.4609
+                                                Root MSE          =     3.8547
+
+                                            (Std. Err. adjusted for 51 clusters in state_id)
+--------------------------------------------------------------------------------------------
+                           |               Robust
+         perm_res_rank_p25 |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+---------------------------+----------------------------------------------------------------
+std_african_american_share |  -3.561288   .3294119   -10.81   0.000    -4.222931   -2.899645
+                     _cons |   46.21472   .4610309   100.24   0.000     45.28871    47.14073
+--------------------------------------------------------------------------------------------
+(est4 stored)
+
+Linear regression                               Number of obs     =        595
+                                                F(1, 593)         =       1.49
+                                                Prob > F          =     0.2221
+                                                R-squared         =     0.0025
+                                                Root MSE          =     12.257
+
+--------------------------------------------------------------------------------
+               |               Robust
+total_expos~25 |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+---------------+----------------------------------------------------------------
+std_poor_share |  -.6186815   .5062353    -1.22   0.222    -1.612914    .3755506
+         _cons |   3.632374   .5025056     7.23   0.000     2.645467    4.619282
+--------------------------------------------------------------------------------
+(est5 stored)
+
+Linear regression                               Number of obs     =        595
+                                                F(1, 50)          =       0.43
+                                                Prob > F          =     0.5141
+                                                R-squared         =     0.0025
+                                                Root MSE          =     12.257
+
+                                (Std. Err. adjusted for 51 clusters in state_id)
+--------------------------------------------------------------------------------
+               |               Robust
+total_expos~25 |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+---------------+----------------------------------------------------------------
+std_poor_share |  -.6186815   .9414353    -0.66   0.514     -2.50961    1.272247
+         _cons |   3.632374   .9828046     3.70   0.001     1.658353    5.606396
+--------------------------------------------------------------------------------
+(est6 stored)
+
+Linear regression                               Number of obs     =        595
+                                                F(1, 593)         =      90.61
+                                                Prob > F          =     0.0000
+                                                R-squared         =     0.1432
+                                                Root MSE          =     4.8597
+
+--------------------------------------------------------------------------------
+               |               Robust
+perm_res_ra~25 |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+---------------+----------------------------------------------------------------
+std_poor_share |  -1.984864   .2085204    -9.52   0.000    -2.394393   -1.575336
+         _cons |   46.21472   .1992278   231.97   0.000     45.82344      46.606
+--------------------------------------------------------------------------------
+(est7 stored)
+
+Linear regression                               Number of obs     =        595
+                                                F(1, 50)          =      13.22
+                                                Prob > F          =     0.0007
+                                                R-squared         =     0.1432
+                                                Root MSE          =     4.8597
+
+                                (Std. Err. adjusted for 51 clusters in state_id)
+--------------------------------------------------------------------------------
+               |               Robust
+perm_res_ra~25 |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+---------------+----------------------------------------------------------------
+std_poor_share |  -1.984864   .5458675    -3.64   0.001    -3.081272    -.888457
+         _cons |   46.21472   .6322114    73.10   0.000     44.94488    47.48455
+--------------------------------------------------------------------------------
+(est8 stored)
+
+Linear regression                               Number of obs     =        595
+                                                F(1, 593)         =      10.88
+                                                Prob > F          =     0.0010
+                                                R-squared         =     0.0199
+                                                Root MSE          =     12.151
+
+----------------------------------------------------------------------------------------
+                       |               Robust
+total_exposure_effe~25 |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-----------------------+----------------------------------------------------------------
+std_racial_segregation |   -1.72821   .5239135    -3.30   0.001    -2.757162   -.6992582
+                 _cons |   3.632374   .4981246     7.29   0.000     2.654071    4.610678
+----------------------------------------------------------------------------------------
+(est9 stored)
+
+Linear regression                               Number of obs     =        595
+                                                F(1, 50)          =      13.50
+                                                Prob > F          =     0.0006
+                                                R-squared         =     0.0199
+                                                Root MSE          =     12.151
+
+                                        (Std. Err. adjusted for 51 clusters in state_id)
+----------------------------------------------------------------------------------------
+                       |               Robust
+total_exposure_effe~25 |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-----------------------+----------------------------------------------------------------
+std_racial_segregation |   -1.72821   .4703229    -3.67   0.001    -2.672881   -.7835385
+                 _cons |   3.632374   .9731518     3.73   0.000     1.677742    5.587007
+----------------------------------------------------------------------------------------
+(est10 stored)
+
+Linear regression                               Number of obs     =        595
+                                                F(1, 593)         =     115.84
+                                                Prob > F          =     0.0000
+                                                R-squared         =     0.1475
+                                                Root MSE          =     4.8473
+
+----------------------------------------------------------------------------------------
+                       |               Robust
+     perm_res_rank_p25 |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-----------------------+----------------------------------------------------------------
+std_racial_segregation |  -2.014932   .1872079   -10.76   0.000    -2.382603   -1.647261
+                 _cons |   46.21472    .198719   232.56   0.000     45.82444      46.605
+----------------------------------------------------------------------------------------
+(est11 stored)
+
+Linear regression                               Number of obs     =        595
+                                                F(1, 50)          =      71.99
+                                                Prob > F          =     0.0000
+                                                R-squared         =     0.1475
+                                                Root MSE          =     4.8473
+
+                                        (Std. Err. adjusted for 51 clusters in state_id)
+----------------------------------------------------------------------------------------
+                       |               Robust
+     perm_res_rank_p25 |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-----------------------+----------------------------------------------------------------
+std_racial_segregation |  -2.014932   .2374815    -8.48   0.000    -2.491928   -1.537937
+                 _cons |   46.21472   .6887469    67.10   0.000     44.83133    47.59811
+----------------------------------------------------------------------------------------
+(est12 stored)
+
+Linear regression                               Number of obs     =        595
+                                                F(1, 593)         =      32.10
+                                                Prob > F          =     0.0000
+                                                R-squared         =     0.0408
+                                                Root MSE          =      12.02
+
+----------------------------------------------------------------------------------------
+                       |               Robust
+total_exposure_effe~25 |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-----------------------+----------------------------------------------------------------
+std_income_segregation |  -2.476675   .4371689    -5.67   0.000    -3.335263   -1.618088
+                 _cons |   3.632374   .4927776     7.37   0.000     2.664573    4.600176
+----------------------------------------------------------------------------------------
+(est13 stored)
+
+Linear regression                               Number of obs     =        595
+                                                F(1, 50)          =      14.65
+                                                Prob > F          =     0.0004
+                                                R-squared         =     0.0408
+                                                Root MSE          =      12.02
+
+                                        (Std. Err. adjusted for 51 clusters in state_id)
+----------------------------------------------------------------------------------------
+                       |               Robust
+total_exposure_effe~25 |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-----------------------+----------------------------------------------------------------
+std_income_segregation |  -2.476675   .6470993    -3.83   0.000    -3.776413   -1.176938
+                 _cons |   3.632374   .9496489     3.82   0.000     1.724948      5.5398
+----------------------------------------------------------------------------------------
+(est14 stored)
+
+Linear regression                               Number of obs     =        595
+                                                F(1, 593)         =     106.62
+                                                Prob > F          =     0.0000
+                                                R-squared         =     0.1289
+                                                Root MSE          =        4.9
+
+----------------------------------------------------------------------------------------
+                       |               Robust
+     perm_res_rank_p25 |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-----------------------+----------------------------------------------------------------
+std_income_segregation |  -1.883198   .1823831   -10.33   0.000    -2.241394   -1.525003
+                 _cons |   46.21472   .2008824   230.06   0.000     45.82019    46.60925
+----------------------------------------------------------------------------------------
+(est15 stored)
+
+Linear regression                               Number of obs     =        595
+                                                F(1, 50)          =      34.36
+                                                Prob > F          =     0.0000
+                                                R-squared         =     0.1289
+                                                Root MSE          =        4.9
+
+                                        (Std. Err. adjusted for 51 clusters in state_id)
+----------------------------------------------------------------------------------------
+                       |               Robust
+     perm_res_rank_p25 |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-----------------------+----------------------------------------------------------------
+std_income_segregation |  -1.883198   .3212838    -5.86   0.000    -2.528516   -1.237881
+                 _cons |   46.21472   .7078692    65.29   0.000     44.79292    47.63651
+----------------------------------------------------------------------------------------
+(est16 stored)
+
+Linear regression                               Number of obs     =        595
+                                                F(1, 593)         =      47.99
+                                                Prob > F          =     0.0000
+                                                R-squared         =     0.0762
+                                                Root MSE          =     11.796
+
+------------------------------------------------------------------------------
+             |               Robust
+total_exp~25 |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+  std_gini99 |  -3.384048   .4885178    -6.93   0.000    -4.343483   -2.424612
+       _cons |   3.632374   .4836085     7.51   0.000     2.682581    4.582168
+------------------------------------------------------------------------------
+(est17 stored)
+
+Linear regression                               Number of obs     =        595
+                                                F(1, 50)          =      17.35
+                                                Prob > F          =     0.0001
+                                                R-squared         =     0.0762
+                                                Root MSE          =     11.796
+
+                              (Std. Err. adjusted for 51 clusters in state_id)
+------------------------------------------------------------------------------
+             |               Robust
+total_exp~25 |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+  std_gini99 |  -3.384048   .8124662    -4.17   0.000    -5.015934   -1.752161
+       _cons |   3.632374   .8264255     4.40   0.000      1.97245    5.292299
+------------------------------------------------------------------------------
+(est18 stored)
+
+Linear regression                               Number of obs     =        595
+                                                F(1, 593)         =     547.48
+                                                Prob > F          =     0.0000
+                                                R-squared         =     0.5059
+                                                Root MSE          =     3.6904
+
+------------------------------------------------------------------------------
+             |               Robust
+perm_res_~25 |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+  std_gini99 |  -3.731035   .1594569   -23.40   0.000    -4.044204   -3.417866
+       _cons |   46.21472   .1512903   305.47   0.000     45.91759    46.51185
+------------------------------------------------------------------------------
+(est19 stored)
+
+Linear regression                               Number of obs     =        595
+                                                F(1, 50)          =      76.11
+                                                Prob > F          =     0.0000
+                                                R-squared         =     0.5059
+                                                Root MSE          =     3.6904
+
+                              (Std. Err. adjusted for 51 clusters in state_id)
+------------------------------------------------------------------------------
+             |               Robust
+perm_res_~25 |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+  std_gini99 |  -3.731035   .4276747    -8.72   0.000    -4.590045   -2.872025
+       _cons |   46.21472   .4793948    96.40   0.000     45.25183    47.17761
+------------------------------------------------------------------------------
+(est20 stored)
+(2 missing values generated)
+
+Linear regression                               Number of obs     =        593
+                                                F(1, 591)         =       7.33
+                                                Prob > F          =     0.0070
+                                                R-squared         =     0.0138
+                                                Root MSE          =     12.207
+
+-----------------------------------------------------------------------------------
+                  |               Robust
+total_exposure~25 |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+------------------+----------------------------------------------------------------
+std_school_exp_pc |   1.442114   .5328271     2.71   0.007     .3956488    2.488579
+            _cons |   3.643279   .5012949     7.27   0.000     2.658743    4.627815
+-----------------------------------------------------------------------------------
+(est21 stored)
+
+Linear regression                               Number of obs     =        593
+                                                F(1, 49)          =       3.28
+                                                Prob > F          =     0.0763
+                                                R-squared         =     0.0138
+                                                Root MSE          =     12.207
+
+                                   (Std. Err. adjusted for 50 clusters in state_id)
+-----------------------------------------------------------------------------------
+                  |               Robust
+total_exposure~25 |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+------------------+----------------------------------------------------------------
+std_school_exp_pc |   1.442114    .796337     1.81   0.076    -.1581853    3.042413
+            _cons |   3.643279   .9640609     3.78   0.000     1.705926    5.580632
+-----------------------------------------------------------------------------------
+(est22 stored)
+
+Linear regression                               Number of obs     =        593
+                                                F(1, 591)         =      31.20
+                                                Prob > F          =     0.0000
+                                                R-squared         =     0.0415
+                                                Root MSE          =     5.1485
+
+-----------------------------------------------------------------------------------
+                  |               Robust
+perm_res_rank_p25 |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+------------------+----------------------------------------------------------------
+std_school_exp_pc |   1.069906   .1915295     5.59   0.000     .6937448    1.446067
+            _cons |   46.21669   .2114221   218.60   0.000     45.80146    46.63192
+-----------------------------------------------------------------------------------
+(est23 stored)
+
+Linear regression                               Number of obs     =        593
+                                                F(1, 49)          =       4.65
+                                                Prob > F          =     0.0360
+                                                R-squared         =     0.0415
+                                                Root MSE          =     5.1485
+
+                                   (Std. Err. adjusted for 50 clusters in state_id)
+-----------------------------------------------------------------------------------
+                  |               Robust
+perm_res_rank_p25 |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+------------------+----------------------------------------------------------------
+std_school_exp_pc |   1.069906   .4963133     2.16   0.036     .0725272    2.067285
+            _cons |   46.21669   .6918178    66.80   0.000     44.82643    47.60695
+-----------------------------------------------------------------------------------
+(est24 stored)
+(103 missing values generated)
+
+Linear regression                               Number of obs     =        492
+                                                F(1, 490)         =      23.14
+                                                Prob > F          =     0.0000
+                                                R-squared         =     0.0509
+                                                Root MSE          =     12.554
+
+-------------------------------------------------------------------------------
+              |               Robust
+total_expo~25 |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+--------------+----------------------------------------------------------------
+std_dropout_r |  -2.903993   .6036374    -4.81   0.000     -4.09003   -1.717955
+        _cons |   3.931227   .5659854     6.95   0.000     2.819169    5.043284
+-------------------------------------------------------------------------------
+(est25 stored)
+
+Linear regression                               Number of obs     =        492
+                                                F(1, 48)          =       8.96
+                                                Prob > F          =     0.0044
+                                                R-squared         =     0.0509
+                                                Root MSE          =     12.554
+
+                               (Std. Err. adjusted for 49 clusters in state_id)
+-------------------------------------------------------------------------------
+              |               Robust
+total_expo~25 |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+--------------+----------------------------------------------------------------
+std_dropout_r |  -2.903993    .970286    -2.99   0.004    -4.854883   -.9531017
+        _cons |   3.931227   1.021164     3.85   0.000     1.878039    5.984414
+-------------------------------------------------------------------------------
+(est26 stored)
+
+Linear regression                               Number of obs     =        492
+                                                F(1, 490)         =     135.58
+                                                Prob > F          =     0.0000
+                                                R-squared         =     0.2601
+                                                Root MSE          =     4.7518
+
+-------------------------------------------------------------------------------
+              |               Robust
+perm_res_r~25 |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+--------------+----------------------------------------------------------------
+std_dropout_r |  -2.814557   .2417233   -11.64   0.000    -3.289499   -2.339615
+        _cons |   46.40892   .2142259   216.64   0.000       45.988    46.82983
+-------------------------------------------------------------------------------
+(est27 stored)
+
+Linear regression                               Number of obs     =        492
+                                                F(1, 48)          =      33.84
+                                                Prob > F          =     0.0000
+                                                R-squared         =     0.2601
+                                                Root MSE          =     4.7518
+
+                               (Std. Err. adjusted for 49 clusters in state_id)
+-------------------------------------------------------------------------------
+              |               Robust
+perm_res_r~25 |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+--------------+----------------------------------------------------------------
+std_dropout_r |  -2.814557   .4838193    -5.82   0.000    -3.787341   -1.841774
+        _cons |   46.40892   .6407587    72.43   0.000     45.12059    47.69725
+-------------------------------------------------------------------------------
+(est28 stored)
+
+Linear regression                               Number of obs     =        595
+                                                F(1, 593)         =      41.28
+                                                Prob > F          =     0.0000
+                                                R-squared         =     0.0746
+                                                Root MSE          =     11.807
+
+----------------------------------------------------------------------------------------
+                       |               Robust
+total_exposure_effe~25 |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-----------------------+----------------------------------------------------------------
+std_singleparent_share |   -3.34866   .5211854    -6.43   0.000    -4.372253   -2.325066
+                 _cons |   3.632374    .484023     7.50   0.000     2.681767    4.582982
+----------------------------------------------------------------------------------------
+(est29 stored)
+
+Linear regression                               Number of obs     =        595
+                                                F(1, 50)          =      17.24
+                                                Prob > F          =     0.0001
+                                                R-squared         =     0.0746
+                                                Root MSE          =     11.807
+
+                                        (Std. Err. adjusted for 51 clusters in state_id)
+----------------------------------------------------------------------------------------
+                       |               Robust
+total_exposure_effe~25 |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-----------------------+----------------------------------------------------------------
+std_singleparent_share |   -3.34866   .8064148    -4.15   0.000    -4.968391   -1.728928
+                 _cons |   3.632374   .7770793     4.67   0.000     2.071565    5.193184
+----------------------------------------------------------------------------------------
+(est30 stored)
+
+Linear regression                               Number of obs     =        595
+                                                F(1, 593)         =     658.94
+                                                Prob > F          =     0.0000
+                                                R-squared         =     0.6480
+                                                Root MSE          =     3.1149
+
+----------------------------------------------------------------------------------------
+                       |               Robust
+     perm_res_rank_p25 |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-----------------------+----------------------------------------------------------------
+std_singleparent_share |  -4.222561   .1644957   -25.67   0.000    -4.545626   -3.899496
+                 _cons |   46.21472   .1276998   361.90   0.000     45.96392    46.46552
+----------------------------------------------------------------------------------------
+(est31 stored)
+
+Linear regression                               Number of obs     =        595
+                                                F(1, 50)          =     112.72
+                                                Prob > F          =     0.0000
+                                                R-squared         =     0.6480
+                                                Root MSE          =     3.1149
+
+                                        (Std. Err. adjusted for 51 clusters in state_id)
+----------------------------------------------------------------------------------------
+                       |               Robust
+     perm_res_rank_p25 |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-----------------------+----------------------------------------------------------------
+std_singleparent_share |  -4.222561    .397718   -10.62   0.000    -5.021401    -3.42372
+                 _cons |   46.21472   .3622047   127.59   0.000     45.48721    46.94223
+----------------------------------------------------------------------------------------
+(est32 stored)
+
+Linear regression                               Number of obs     =        595
+                                                F(1, 593)         =      18.83
+                                                Prob > F          =     0.0000
+                                                R-squared         =     0.0255
+                                                Root MSE          =     12.116
+
+----------------------------------------------------------------------------------------
+                       |               Robust
+total_exposure_effe~25 |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-----------------------+----------------------------------------------------------------
+std_median_house_value |  -1.958456   .4512772    -4.34   0.000    -2.844752    -1.07216
+                 _cons |   3.632374   .4966882     7.31   0.000     2.656893    4.607856
+----------------------------------------------------------------------------------------
+(est33 stored)
+
+Linear regression                               Number of obs     =        595
+                                                F(1, 50)          =       7.85
+                                                Prob > F          =     0.0072
+                                                R-squared         =     0.0255
+                                                Root MSE          =     12.116
+
+                                        (Std. Err. adjusted for 51 clusters in state_id)
+----------------------------------------------------------------------------------------
+                       |               Robust
+total_exposure_effe~25 |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-----------------------+----------------------------------------------------------------
+std_median_house_value |  -1.958456   .6988367    -2.80   0.007    -3.362111   -.5548013
+                 _cons |   3.632374   .9884067     3.67   0.001     1.647101    5.617648
+----------------------------------------------------------------------------------------
+(est34 stored)
+
+Linear regression                               Number of obs     =        595
+                                                F(1, 593)         =       6.67
+                                                Prob > F          =     0.0100
+                                                R-squared         =     0.0101
+                                                Root MSE          =     5.2236
+
+----------------------------------------------------------------------------------------
+                       |               Robust
+     perm_res_rank_p25 |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-----------------------+----------------------------------------------------------------
+std_median_house_value |  -.5259924   .2036163    -2.58   0.010    -.9258891   -.1260956
+                 _cons |   46.21472   .2141458   215.81   0.000     45.79414    46.63529
+----------------------------------------------------------------------------------------
+(est35 stored)
+
+Linear regression                               Number of obs     =        595
+                                                F(1, 50)          =       1.66
+                                                Prob > F          =     0.2033
+                                                R-squared         =     0.0101
+                                                Root MSE          =     5.2236
+
+                                        (Std. Err. adjusted for 51 clusters in state_id)
+----------------------------------------------------------------------------------------
+                       |               Robust
+     perm_res_rank_p25 |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-----------------------+----------------------------------------------------------------
+std_median_house_value |  -.5259924    .407999    -1.29   0.203    -1.345483    .2934978
+                 _cons |   46.21472   .7309131    63.23   0.000     44.74664     47.6828
+----------------------------------------------------------------------------------------
+(est36 stored)
+
+. esttab using reg.csv, label nostar replace drop(_cons)  //esttab: output the restored reg result
+(output written to reg.csv)
+
+. 
+. translate "mobility.log" "mobility.pdf", replace
+(file mobility.pdf written in PDF format)
+
+. log close
+      name:  <unnamed>
+       log:  H:\stata\Chettylab\output\mobility.log
+  log type:  text
+ closed on:   5 Mar 2017, 20:55:23
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
