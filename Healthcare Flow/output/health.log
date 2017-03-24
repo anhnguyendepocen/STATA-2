@@ -1,0 +1,537 @@
+----------------------------------------------------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  H:\stata\RA task\output\health.log
+  log type:  text
+ opened on:  24 Mar 2017, 15:02:20
+
+. * import data and management
+. import delimited using "$data\test_data.txt", varnames(1) clear
+(6 vars, 8,831 obs)
+
+. order visit_num, b(ed_tc)
+
+. rename xb_lntdc lnStayLength
+
+. egen physician = group(phys_name)
+
+. capture noisily ssc install labutil
+checking labutil consistency and verifying not already installed...
+all files already exist and are up to date.
+
+. labmask physician, values(phys_name)
+
+. * change directory to "H:\stata\RA task\output"
+. cd "$output"
+H:\stata\RA task\output
+
+. * generate date time of Arrival, order discharge,and shift
+. gen double edArrival = clock(ed_tc, "DMY hms")
+
+. format edArrival %tc
+
+. gen double orderDischarge = clock(dcord_tc, "DMY hms")
+
+. format orderDischarge %tc
+
+. * check edArrival < orderDischarge
+. gen errorCharge = 1 if edArrival >= orderDischarge
+(8,827 missing values generated)
+
+. sort(errorCharge) // 4 entry errors 
+
+. * shift begin
+. gen beginHour_temp = substr(shiftid, 11, 7)
+
+. gen beginHour_temp2 = beginHour_temp if beginHour_temp != "noon to"
+(302 missing values generated)
+
+. replace beginHour_temp2 = "12 p.m." if beginHour_temp == "noon to"
+(302 real changes made)
+
+. gen shiftBegin_temp = substr(shiftid, 1, 9) + " " + beginHour_temp2
+
+. gen double shiftBegin = clock(shiftBegin_temp, "DMY h")
+
+. format shiftBegin %tc
+
+. * shift end
+. gen endHour_temp = substr(shiftid, -7, .)
+
+. gen endHour_temp2 = endHour_temp if endHour_temp != "to noon"
+(1,524 missing values generated)
+
+. replace endHour_temp2 = "12 p.m." if endHour_temp == "to noon"
+(1,524 real changes made)
+
+. gen shiftEnd_temp = substr(shiftid, 1, 9) + " " + endHour_temp2
+
+. gen double shiftEnd_temp2 = clock(shiftEnd_temp, "DMY h")
+
+. format shiftEnd_temp2 %tc
+
+. * encode shiftid
+. egen shift = group(shiftid)
+
+. labmask shift, values(shiftid)
+
+. * check shiftEnd >= shiftBegin
+. gen errorShift = 1 if shiftEnd_temp2 < shiftBegin
+(7,764 missing values generated)
+
+. gen double shiftEnd = shiftEnd_temp2 if errorShift != 1
+(1,067 missing values generated)
+
+. replace shiftEnd = shiftEnd_temp2 + msofhours(24) if errorShift == 1
+(1,067 real changes made)
+
+. format shiftEnd %tc
+
+. * check edArrial in interval [shiftBegin, shiftEnd]
+. gen inShift = 1 if (edArrival >= shiftBegin)&(edArrival <= shiftEnd)
+(650 missing values generated)
+
+. * prople who waits
+. gen waiting_temp = 1 if mi(inShift)&(edArrival < shiftBegin) 
+(8,181 missing values generated)
+
+. tab2 inShift waiting_temp, mi
+
+-> tabulation of inShift by waiting_temp  
+
+           |     waiting_temp
+   inShift |         1          . |     Total
+-----------+----------------------+----------
+         1 |         0      8,181 |     8,181 
+         . |       650          0 |       650 
+-----------+----------------------+----------
+     Total |       650      8,181 |     8,831 
+
+
+. drop waiting_temp
+
+. gen waiting = 1 if mi(inShift)&(orderDischarge > shiftBegin)
+(8,186 missing values generated)
+
+. tab2 inShift waiting, mi
+
+-> tabulation of inShift by waiting  
+
+           |        waiting
+   inShift |         1          . |     Total
+-----------+----------------------+----------
+         1 |         0      8,181 |     8,181 
+         . |       645          5 |       650 
+-----------+----------------------+----------
+     Total |       645      8,186 |     8,831 
+
+
+. * calcalute the waiting minutes: divided by 60000 in STATA 14
+. gen waitingMinutes = (shiftBegin - edArrival)/60000 if mi(inShift)
+(8,181 missing values generated)
+
+. sort(waitingMinutes)
+
+. * drop unnecessary variables
+. drop ed_tc dcord_tc shiftid phys_name beginHour_temp-shiftBegin_temp ///
+>          endHour_temp-shiftEnd_temp2 errorShift
+
+. * data entry error that "edArrival > orderDischarge"
+. drop if errorCharge == 1 // 4 entry errors
+(4 observations deleted)
+
+. * data entry error that [edArrival, orderDischarge] not in [shiftBegin, shiftEnd]
+. drop if mi(waiting)&(!mi(waitingMinutes)) // 5 entry errors
+(5 observations deleted)
+
+. drop errorCharge inShift
+
+. * treatment length in minutes
+. gen treatmentLength = (orderDischarge - edArrival)/60000
+
+. replace treatmentLength = (orderDischarge - edArrival)/60000 - waitingMinutes if !mi(waitingMinutes)
+(645 real changes made)
+
+. 
+. *Q1 summarize the data
+. foreach var of varlist edArrival-shiftEnd {
+  2.         gen `var'Hour = hh(`var')
+  3. //      gen `var'Weekday = 
+. }
+
+. * using outreg2 package to generate statstics output table
+. outreg2 using stats.tex, replace sum(log) eqkeep(N mean sd min max p25 p50 p75) ///
+>                                         keep(lnStayLength waitingMinutes-shiftEndHour)
+
+    Variable |        Obs        Mean    Std. Dev.       Min        Max
+-------------+---------------------------------------------------------
+   visit_num |      8,822    4415.877    2549.566          1       8831
+lnStayLength |      8,822    1.121319    .3817895  -.2758868   2.124072
+   physician |      8,822    20.62843    12.59838          1         43
+   edArrival |      8,822    7.09e+11    1.53e+09   7.06e+11   7.11e+11
+orderDisch~e |      8,822    7.09e+11    1.53e+09   7.06e+11   7.11e+11
+-------------+---------------------------------------------------------
+  shiftBegin |      8,822    7.09e+11    1.53e+09   7.06e+11   7.11e+11
+       shift |      8,822    201.8215    114.2194          1        398
+    shiftEnd |      8,822    7.09e+11    1.53e+09   7.06e+11   7.11e+11
+     waiting |        645           1           0          1          1
+waitingMin~s |        645     26.9814    26.53843          1        238
+-------------+---------------------------------------------------------
+treatmentL~h |      8,822     240.723    252.9258          3       2211
+edArrivalH~r |      8,822    11.10655    5.331095          0         23
+orderDisch~r |      8,822    12.49807    5.505976          0         23
+shiftBegin~r |      8,822    9.341306    5.099234          3         19
+   shiftHour |      8,822           0           0          0          0
+-------------+---------------------------------------------------------
+shiftEndHour |      8,822    15.54421    5.600948          4         22
+
+
+stats.tex
+dir : seeout
+
+. * Q2 before and after shift
+. gen afterShift = 1 if orderDischarge > shiftEnd
+(7,147 missing values generated)
+
+. tab2 waiting afterShift, missing
+
+-> tabulation of waiting by afterShift  
+
+           |      afterShift
+   waiting |         1          . |     Total
+-----------+----------------------+----------
+         1 |        59        586 |       645 
+         . |     1,616      6,561 |     8,177 
+-----------+----------------------+----------
+     Total |     1,675      7,147 |     8,822 
+
+
+. * Q3 hourly pattern
+. * yline = 1/24 = 0.042
+. twoway (histogram edArrivalHour, graphregion(color(white)) xtitle("Hour of Patient Visit")  ///
+>                                   bcolor(green) yline(0.042) xlabel(0(2)23) width(1) discrete) (kdensity edArrivalHour),  
+> ///
+>                                   legend(label(1 "Density Histogram") label(2 "K-density Curve")) scheme(s1color)
+
+. graph export hourlyPattern.pdf, replace 
+(file hourlyPattern.pdf written in PDF format)
+
+. tabout edArrivalHour using hourlyPattern.xls, replace cells(freq col)
+
+Table output written to: hourlyPattern.xls
+
+edArrivalHour   No.     %
+0       132.0   1.5
+1       114.0   1.3
+2       142.0   1.6
+3       156.0   1.8
+4       345.0   3.9
+5       409.0   4.6
+6       619.0   7.0
+7       617.0   7.0
+8       617.0   7.0
+9       504.0   5.7
+10      572.0   6.5
+11      519.0   5.9
+12      573.0   6.5
+13      567.0   6.4
+14      517.0   5.9
+15      440.0   5.0
+16      465.0   5.3
+17      377.0   4.3
+18      293.0   3.3
+19      230.0   2.6
+20      161.0   1.8
+21      161.0   1.8
+22      138.0   1.6
+23      154.0   1.7
+Total   8,822.0 100.0
+
+. * Q3 census
+. gen double shiftLength_temp = (shiftEnd - shiftBegin)/(60*60000)
+
+. tab shiftLength_temp, missing //shift length in [2h, 10h]
+
+shiftLength |
+      _temp |      Freq.     Percent        Cum.
+------------+-----------------------------------
+          2 |          4        0.05        0.05
+          7 |         17        0.19        0.24
+          9 |      7,831       88.77       89.00
+         10 |        970       11.00      100.00
+------------+-----------------------------------
+      Total |      8,822      100.00
+
+. drop shiftLength_temp
+
+. gen double inTreat = (edArrival - shiftEnd)/(60*60000)
+
+. replace inTreat = (shiftBegin - shiftEnd)/(60*60000) if waiting == 1
+(645 real changes made)
+
+. gen double outTreat = (orderDischarge - shiftEnd)/(60*60000)
+
+. gen double outTreat_temp = outTreat
+
+. replace outTreat = 4 if outTreat_temp >= 4
+(629 real changes made)
+
+. drop outTreat_temp
+
+. 
+. 
+. forvalues i = 0/10 {
+  2.         if (`i' >= 1) & (`i' <= 3) {
+  3.                 gen indexPos`i' = 0
+  4.                 gen indexNeg`i' = 0
+  5.         }
+  6.         else if `i' >=4 {
+  7.                 gen indexNeg`i' = 0
+  8.         }
+  9.         else {
+ 10.             gen index0 = 0
+ 11.                 replace index0 = 1 if (0 >= inTreat)&(outTreat >=0)
+ 12.         }
+ 13. } 
+(1,686 real changes made)
+
+. forvalues i =1/3 {
+  2.         replace indexPos`i' = 1 if (`i' >= inTreat)&(outTreat >= `i' )
+  3. }
+(1,211 real changes made)
+(920 real changes made)
+(742 real changes made)
+
+. forvalues i = 1/10 {
+  2.         replace indexNeg`i' = 1 if (-`i' >= inTreat)&(outTreat >= -`i')
+  3. }
+(2,535 real changes made)
+(3,384 real changes made)
+(3,893 real changes made)
+(4,207 real changes made)
+(3,991 real changes made)
+(3,289 real changes made)
+(2,593 real changes made)
+(1,832 real changes made)
+(786 real changes made)
+(46 real changes made)
+
+. preserve
+
+.         collapse (sum) index0 indexNeg* indexPos*, by(physician shift)
+
+.         save "Census.txt", replace
+file Census.txt saved
+
+.         rename index0 index10
+
+.         rename indexPos1 index11
+
+.         rename indexPos2 index12
+
+.         rename indexPos3 index13
+
+.         rename indexNeg10 index0
+
+.         rename indexNeg9 index1
+
+.         rename indexNeg8 index2
+
+.         rename indexNeg7 index3
+
+.         rename indexNeg6 index4
+
+.         rename indexNeg5 index5
+
+.         rename indexNeg4 index6
+
+.         rename indexNeg3 index7
+
+.         rename indexNeg2 index8
+
+.         rename indexNeg1 index9
+
+.         order physician shift index0 index1 index2 index3 index4 index5 ///
+>               index6 index7 index8 index9 index10 index11 index12 index13
+
+.         reshape long index, i(physician shift) j(indexCo)
+(note: j = 0 1 2 3 4 5 6 7 8 9 10 11 12 13)
+
+Data                               wide   ->   long
+-----------------------------------------------------------------------------
+Number of obs.                      530   ->    7420
+Number of variables                  16   ->       4
+j variable (14 values)                    ->   indexCo
+xij variables:
+              index0 index1 ... index13   ->   index
+-----------------------------------------------------------------------------
+
+.         rename index numPatient
+
+.         gen int index = indexCo -10
+
+.         drop indexCo
+
+.         graph box numPatient, over(index) nooutsides graphregion(color(white)) ///
+>                                                         scheme(s1color)
+
+.         graph export numPatient.pdf, replace 
+(file numPatient.pdf written in PDF format)
+
+.         save "Census_reshaped.txt", replace
+file Census_reshaped.txt saved
+
+. restore
+
+. * Q4 regression
+. preserve
+
+.         graph hbox lnStayLength, over(physician, label(labsize(vsmall))) ///
+>                         nooutsides graphregion(color(white)) scheme(s1color)
+
+.         graph export lnStayLength.pdf, replace 
+(file lnStayLength.pdf written in PDF format)
+
+.         replace waiting = 0 if mi(waiting)
+(8,177 real changes made)
+
+.         capture ssc install estout 
+
+.         eststo: reg lnStayLength i.physician, robust
+
+Linear regression                               Number of obs     =      8,822
+                                                F(42, 8779)       =       1.63
+                                                Prob > F          =     0.0060
+                                                R-squared         =     0.0071
+                                                Root MSE          =     .38135
+
+------------------------------------------------------------------------------
+             |               Robust
+lnStayLength |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+   physician |
+     Andrew  |  -.0727343   .0369878    -1.97   0.049    -.1452391   -.0002296
+       Anne  |  -.0446675   .0374953    -1.19   0.234    -.1181671    .0288321
+     Audrey  |  -.0137466   .0349799    -0.39   0.694    -.0823153    .0548221
+     Barack  |  -.0602813   .0367082    -1.64   0.101     -.132238    .0116753
+    Beatrix  |  -.0463377   .0328194    -1.41   0.158    -.1106715    .0179961
+    Benazir  |  -.0564306   .0384827    -1.47   0.143    -.1318657    .0190046
+   Benjamin  |  -.0149364   .0345559    -0.43   0.666    -.0826741    .0528013
+       Bill  |  -.0191083   .0356726    -0.54   0.592    -.0890349    .0508183
+     Calvin  |  -.0089376   .0333654    -0.27   0.789    -.0743416    .0564663
+    Chester  |   -.008359   .0434955    -0.19   0.848    -.0936203    .0769023
+      Diana  |   -.061712   .0355313    -1.74   0.082    -.1313617    .0079377
+     Dwight  |  -.0708874   .0341918    -2.07   0.038    -.1379113   -.0038635
+    Eleanor  |   .0661661   .0404917     1.63   0.102    -.0132071    .1455393
+  Elizabeth  |  -.0745835   .0512702    -1.45   0.146    -.1750852    .0259181
+   Franklin  |  -.0210292   .0354729    -0.59   0.553    -.0905644    .0485061
+     George  |   .0399753   .0359277     1.11   0.266    -.0304514    .1104021
+     Gerald  |   -.035441   .0331704    -1.07   0.285    -.1004627    .0295807
+     Grover  |  -.0237483   .0383241    -0.62   0.535    -.0988726     .051376
+      Harry  |  -.0074512   .0336951    -0.22   0.825    -.0735015    .0585991
+    Herbert  |  -.0304386   .0416703    -0.73   0.465     -.112122    .0512449
+    Hillary  |   .0355887   .0375879     0.95   0.344    -.0380924    .1092697
+     Ingrid  |  -.0376234   .0340762    -1.10   0.270    -.1044207     .029174
+ Jacqueline  |   .0472737   .0416862     1.13   0.257    -.0344411    .1289885
+      James  |  -.0391022   .0424765    -0.92   0.357    -.1223662    .0441617
+      Jimmy  |   .0285814   .0362431     0.79   0.430    -.0424635    .0996263
+       John  |  -.0183244   .0394438    -0.46   0.642    -.0956435    .0589946
+       Kate  |  -.0073104   .0387641    -0.19   0.850     -.083297    .0686763
+  Katharine  |   .0255273   .0486831     0.52   0.600    -.0699029    .1209576
+     Lyndon  |  -.0331063   .0405692    -0.82   0.414    -.1126314    .0464188
+     Martin  |   -.017995   .0334552    -0.54   0.591    -.0835749     .047585
+      Oprah  |   .0012016   .0366863     0.03   0.974    -.0707121    .0731153
+    Richard  |   .0162879    .039554     0.41   0.681    -.0612472    .0938229
+     Ronald  |  -.0483119   .0371717    -1.30   0.194    -.1211771    .0245533
+     Teresa  |  -.1035178   .0421702    -2.45   0.014    -.1861812   -.0208544
+     Thomas  |  -.0518394    .087066    -0.60   0.552    -.2225091    .1188304
+    Ulysses  |   .0404558   .0400552     1.01   0.313    -.0380619    .1189735
+   Victoria  |    .159606   .1192065     1.34   0.181    -.0740666    .3932786
+   Virginia  |   -.029011   .0352077    -0.82   0.410    -.0980263    .0400044
+     Warren  |  -.0235964   .0345579    -0.68   0.495     -.091338    .0441453
+     Whoopi  |  -.0265169   .0325856    -0.81   0.416    -.0903924    .0373585
+    William  |  -.0324227   .0395316    -0.82   0.412     -.109914    .0450685
+    Woodrow  |   .0085202   .0371523     0.23   0.819    -.0643071    .0813474
+             |
+       _cons |   1.144362   .0260354    43.95   0.000     1.093327    1.195397
+------------------------------------------------------------------------------
+(est1 stored)
+
+.         eststo: reg lnStayLength i.physician waiting inTreat, robust
+
+Linear regression                               Number of obs     =      8,822
+                                                F(44, 8777)       =       2.03
+                                                Prob > F          =     0.0001
+                                                R-squared         =     0.0093
+                                                Root MSE          =     .38097
+
+------------------------------------------------------------------------------
+             |               Robust
+lnStayLength |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+   physician |
+     Andrew  |  -.0738492   .0370431    -1.99   0.046    -.1464624    -.001236
+       Anne  |  -.0445541   .0374504    -1.19   0.234    -.1179657    .0288575
+     Audrey  |  -.0141326   .0349885    -0.40   0.686    -.0827182     .054453
+     Barack  |  -.0596241   .0366632    -1.63   0.104    -.1314926    .0122445
+    Beatrix  |  -.0481565   .0327734    -1.47   0.142    -.1123999     .016087
+    Benazir  |  -.0568227   .0384537    -1.48   0.140    -.1322009    .0185555
+   Benjamin  |  -.0156902     .03454    -0.45   0.650    -.0833967    .0520163
+       Bill  |    -.01947   .0356786    -0.55   0.585    -.0894085    .0504685
+     Calvin  |  -.0099386   .0333599    -0.30   0.766    -.0753318    .0554546
+    Chester  |  -.0098227   .0434075    -0.23   0.821    -.0949116    .0752663
+      Diana  |   -.061232   .0355291    -1.72   0.085    -.1308774    .0084133
+     Dwight  |  -.0724508   .0341064    -2.12   0.034    -.1393072   -.0055943
+    Eleanor  |   .0663982   .0403613     1.65   0.100    -.0127193    .1455158
+  Elizabeth  |  -.0751061   .0512858    -1.46   0.143    -.1756384    .0254261
+   Franklin  |  -.0200896   .0353764    -0.57   0.570    -.0894356    .0492564
+     George  |   .0369983   .0359882     1.03   0.304    -.0335469    .1075436
+     Gerald  |   -.036124   .0331581    -1.09   0.276    -.1011218    .0288737
+     Grover  |  -.0236368   .0382425    -0.62   0.537     -.098601    .0513274
+      Harry  |  -.0096555   .0336259    -0.29   0.774    -.0755701    .0562591
+    Herbert  |  -.0305959   .0414223    -0.74   0.460    -.1117933    .0506015
+    Hillary  |    .036076   .0374952     0.96   0.336    -.0374235    .1095755
+     Ingrid  |  -.0402943   .0340288    -1.18   0.236    -.1069988    .0264101
+ Jacqueline  |   .0481499   .0416537     1.16   0.248     -.033501    .1298009
+      James  |   -.038995   .0423798    -0.92   0.358    -.1220693    .0440793
+      Jimmy  |   .0266054   .0362381     0.73   0.463    -.0444298    .0976405
+       John  |  -.0217294   .0393546    -0.55   0.581    -.0988737    .0554149
+       Kate  |  -.0128075   .0388648    -0.33   0.742    -.0889915    .0633766
+  Katharine  |   .0222192   .0489231     0.45   0.650    -.0736815    .1181199
+     Lyndon  |  -.0326999   .0404213    -0.81   0.419    -.1119351    .0465352
+     Martin  |  -.0178903   .0333593    -0.54   0.592    -.0832824    .0475018
+      Oprah  |  -.0011257   .0366235    -0.03   0.975    -.0729164    .0706649
+    Richard  |   .0174218   .0395655     0.44   0.660    -.0601358    .0949794
+     Ronald  |  -.0493464   .0369957    -1.33   0.182    -.1218667    .0231738
+     Teresa  |  -.1037624   .0422322    -2.46   0.014    -.1865474   -.0209774
+     Thomas  |  -.0592282   .0872672    -0.68   0.497    -.2302923    .1118359
+    Ulysses  |   .0370339     .04002     0.93   0.355    -.0414146    .1154825
+   Victoria  |   .1750968   .1170402     1.50   0.135    -.0543293     .404523
+   Virginia  |  -.0295597   .0351346    -0.84   0.400    -.0984318    .0393124
+     Warren  |  -.0234847   .0345721    -0.68   0.497    -.0912542    .0442847
+     Whoopi  |   -.027461   .0325963    -0.84   0.400    -.0913573    .0364353
+    William  |  -.0313322   .0392576    -0.80   0.425    -.1082863    .0456219
+    Woodrow  |   .0094543   .0371101     0.25   0.799    -.0632902    .0821988
+             |
+     waiting |   .0110957   .0163428     0.68   0.497    -.0209401    .0431315
+     inTreat |   -.007936   .0021942    -3.62   0.000    -.0122372   -.0036348
+       _cons |   1.096532   .0289503    37.88   0.000     1.039783    1.153281
+------------------------------------------------------------------------------
+(est2 stored)
+
+.         esttab using reg.tex, replace label drop(_cons)
+(note: file reg.tex not found)
+(output written to reg.tex)
+
+. restore
+
+.                  
+.                 
+. translate "health.log" "health.pdf", replace
+(file health.pdf written in PDF format)
+
+. log close
+      name:  <unnamed>
+       log:  H:\stata\RA task\output\health.log
+  log type:  text
+ closed on:  24 Mar 2017, 15:02:40
+----------------------------------------------------------------------------------------------------------------------------

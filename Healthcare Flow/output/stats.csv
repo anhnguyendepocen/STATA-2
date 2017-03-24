@@ -1,0 +1,9 @@
+	est1				
+	count	mean	sd	min	max
+lnStayLength	8822	1.121319	.3817895	-.2758868	2.124072
+waitingMinutes	645	26.9814	26.53843	1	238
+treatmentLength	8822	240.723	252.9258	3	2211
+edArrivalHour	8822	11.10655	5.331095	0	23
+orderDischargeHour	8822	12.49807	5.505976	0	23
+shiftBeginHour	8822	9.341306	5.099234	3	19
+shiftEndHour	8822	15.54421	5.600948	4	22

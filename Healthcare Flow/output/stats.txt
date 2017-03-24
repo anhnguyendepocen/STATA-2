@@ -1,0 +1,12 @@
+	(1)	(2)	(3)	(4)	(5)	(6)	(7)	(8)
+VARIABLES	N	mean	sd	min	max	p25	p50	p75
+								
+lnStayLength	8,822	1.121	0.382	-0.276	2.124	2.124	2.124	2.124
+waitingMinutes	645	26.98	26.54	1	238	238	238	238
+treatmentLength	8,822	240.7	252.9	3	2,211	2,211	2,211	2,211
+edArrivalHour	8,822	11.11	5.331	0	23	23	23	23
+orderDischargeHour	8,822	12.50	5.506	0	23	23	23	23
+shiftBeginHour	8,822	9.341	5.099	3	19	19	19	19
+shiftHour	8,822	0	0	0	0	0	0	0
+shiftEndHour	8,822	15.54	5.601	4	22	22	22	22
+								
