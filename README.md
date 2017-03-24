@@ -1,10 +1,14 @@
 # STATA Instrutions
 
-* Class 1: Basics; 
+* Class 1: Basics
 
-* Class 2: Regression and IV;
+* Class 2: Regression and IV
 
-* Class 3: Time Series Analysis and Panel Analysis.
+* Class 3: Time Series Analysis and Panel Analysis
+
+* ChettyLab: Code of Professor Chetty's RA Test
+
+* Healthcare Flow: SQL data and analysis
 
 Reference:
 
