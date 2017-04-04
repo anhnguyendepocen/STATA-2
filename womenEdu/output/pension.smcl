@@ -1,0 +1,1198 @@
+{smcl}
+{com}{sf}{ul off}{txt}{.-}
+      name:  {res}<unnamed>
+       {txt}log:  {res}H:\stata\charls\output\pension.smcl
+  {txt}log type:  {res}smcl
+ {txt}opened on:  {res} 4 Apr 2017, 11:06:10
+{txt}
+{com}. 
+. cd "$output" 
+{res}H:\stata\charls\output
+{txt}
+{com}. 
+. use "$data\charls11\demographic_background.dta", clear
+{txt}
+{com}. * gender
+. bysort householdID: egen rgender_max=max(rgender)
+{txt}(4 missing values generated)
+
+{com}. replace rgender = . if rgender != 1 & rgender != 2
+{txt}(6 real changes made, 6 to missing)
+
+{com}. replace rgender = 1 if rgender_max == 2 & mi(rgender) 
+{txt}(2 real changes made)
+
+{com}. replace rgender = 2 if rgender_max == 1 & mi(rgender) 
+{txt}(7 real changes made)
+
+{com}. gen female=(rgender==2)
+{txt}
+{com}. replace female=. if mi(rgender)
+{txt}(4 real changes made, 4 to missing)
+
+{com}. * hukou
+. gen hukou = bc001 if !mi(bc001)
+{txt}(32 missing values generated)
+
+{com}. replace hukou = bc002 if (bc001 != 1)&(bc001 != 2)&(!mi(bc002))
+{txt}(104 real changes made)
+
+{com}. replace hukou = . if hukou !=1 & hukou != 2
+{txt}(13 real changes made, 13 to missing)
+
+{com}. bysort householdID: egen urban = max(hukou)
+{txt}(15 missing values generated)
+
+{com}. replace urban = urban - 1
+{txt}(17,690 real changes made)
+
+{com}. * education
+. recode bd001 (1=0) (2/3=1) (4=2) (5=3) (6=4) (7/10=5), gen(edu)
+{txt}(17653 differences between bd001 and edu)
+
+{com}. * insert missing value for female
+. bysort householdID: egen edu_max = max(edu)
+{txt}(15 missing values generated)
+
+{com}. replace female = 0 if (female == .)&(edu == edu_max)
+{txt}(3 real changes made)
+
+{com}. replace female = 1 if (female == .)&(edu != edu_max)
+{txt}(1 real change made)
+
+{com}. bysort householdID: gen familyNum = _N
+{txt}
+{com}. bysort householdID: egen female_max = max(female)
+{txt}
+{com}. bysort householdID: egen female_min = min(female)
+{txt}
+{com}. gen sameGender = 1 if (familyNum == 2)&(female_max == female_min)
+{txt}(17,635 missing values generated)
+
+{com}. replace female = 1 if (sameGender == 1)&(edu != edu_max)
+{txt}(8 real changes made)
+
+{com}. replace female = 0 if (sameGender == 1)&(edu == edu_max)
+{txt}(28 real changes made)
+
+{com}. bysort householdID: egen female_max2 = max(female)
+{txt}
+{com}. bysort householdID: egen female_min2 = min(female)
+{txt}
+{com}. gen sameGender2 = 1 if (familyNum == 2)&(female_max2 == female_min2)
+{txt}(17,679 missing values generated)
+
+{com}. bysort householdID: replace female = 0 if (_n == 1)&(sameGender2 == 1)
+{txt}(0 real changes made)
+
+{com}. bysort householdID: replace female = 1 if (_n == 2)&(sameGender2 == 1)
+{txt}(13 real changes made)
+
+{com}. bysort householdID: egen female_max3 = max(female)
+{txt}
+{com}. bysort householdID: egen female_min3 = min(female)
+{txt}
+{com}. gen sameGender3 = 1 if (familyNum == 2)&(female_max3 == female_min3)
+{txt}(17,705 missing values generated)
+
+{com}. drop if sameGender3 == 1 
+{txt}(0 observations deleted)
+
+{com}. * reshape
+. keep householdID female urban edu
+{txt}
+{com}. sort householdID female, stable
+{txt}
+{com}. reshape wide urban edu, i(householdID) j(female)
+{txt}(note: j = 0 1)
+
+Data{col 36}long{col 43}->{col 48}wide
+{hline 77}
+Number of obs.                 {res}   17705   {txt}->{res}   10251
+{txt}Number of variables            {res}       4   {txt}->{res}       5
+{txt}j variable (2 values)            {res}female   {txt}->   (dropped)
+xij variables:
+                                  {res}urban   {txt}->   {res}urban0 urban1
+                                    edu   {txt}->   {res}edu0 edu1
+{txt}{hline 77}
+
+{com}. rename urban0 urbanDad
+{res}{txt}
+{com}. rename urban1 urbanMom
+{res}{txt}
+{com}. rename edu0 eduDad
+{res}{txt}
+{com}. rename edu1 eduMom
+{res}{txt}
+{com}. save "parent.dta", replace
+{txt}file parent.dta saved
+
+{com}. * family information for non-resident
+. use "$data\charls11\family_information.dta", clear
+{txt}
+{com}. keep householdID ID communityID cb049_1_ cb049_2_ cb049_3_ cb049_4_ cb049_5_ cb049_6_ cb049_7_ cb049_8_ cb049_9_ cb049_10_ cb049_11_ cb049_12_ cb049_13_ cb049_14_ cb051_1_1_ cb051_1_2_ cb051_1_3_ cb051_1_4_  ///
+>              cb051_1_5_ cb051_1_6_ cb051_1_7_ cb051_1_8_ cb051_1_9_  ///
+>                          cb051_1_10_ cb051_1_11_ cb051_1_12_ cb051_1_13_ cb051_1_14_ /// 
+>                          cb051_2_1_ cb051_2_2_ cb051_2_3_ cb051_2_4_ cb051_2_5_ cb051_2_6_  ///
+>                          cb051_2_7_ cb051_2_8_ cb051_2_9_ cb051_2_10_ cb051_2_11_ cb051_2_12_ cb051_2_13_ cb051_2_14_  ///
+>                          cb052_1_ cb052_2_ cb052_3_ cb052_4_ cb052_5_ /// 
+>              cb052_6_ cb052_7_ cb052_8_ cb052_9_ cb052_10_ cb052_11_ cb052_12_  ///
+>                          cb052_13_ cb052_14_ cb059_1_ cb059_2_ cb059_3_ cb059_4_ cb059_5_ cb059_6_ cb059_8_  /// 
+>                          cb059_9_ cb060_1_ cb060_2_ cb060_3_ cb060_4_ cb060_5_ cb060_6_ cb060_7_ cb060_8_ cb060_9_ cb060_10_ ///
+>                          cb064_1_ cb064_2_ cb064_3_ cb064_4_ cb064_5_ cb064_6_ cb064_7_ cb064_8_ cb064_9_ /// 
+>                          cb064_10_ cb069_1_ cb069_2_ cb069_3_ cb069_4_ cb069_5_ cb069_6_ cb069_7_ cb069_8_ cb069_9_ ///
+>                          cb069_10_ cb069_11_ cb069_12_ cb069_13_ cb069_14_ cb069_15_ cb069_23_ cb069_25_
+{txt}
+{com}. 
+. forvalues i=1/14{c -(}
+{txt}  2{com}. rename cb051_1_`i'_ cb051_1`i' 
+{txt}  3{com}. rename cb051_2_`i'_ cb052_2`i' 
+{txt}  4{com}. rename cb052_`i'_  cb052`i' 
+{txt}  5{com}. rename cb049_`i'_ cb049`i'
+{txt}  6{com}. {c )-}
+{res}{txt}
+{com}. 
+. forvalues i=1/6{c -(}
+{txt}  2{com}. rename cb059_`i'_ cb059`i'
+{txt}  3{com}. {c )-}
+{res}{txt}
+{com}. rename cb059_8_ cb0598
+{res}{txt}
+{com}. rename cb059_9_ cb0599
+{res}{txt}
+{com}. 
+. forvalues i=1/10{c -(}
+{txt}  2{com}. rename cb060_`i'_ cb060`i'
+{txt}  3{com}. rename cb064_`i'_ cb064`i'
+{txt}  4{com}. {c )-}
+{res}{txt}
+{com}. 
+. forvalues i=1/15{c -(}
+{txt}  2{com}. rename cb069_`i'_ cb069`i'
+{txt}  3{com}. {c )-}
+{res}{txt}
+{com}. rename cb069_23_ cb06923
+{res}{txt}
+{com}. rename cb069_25_ cb06925
+{res}{txt}
+{com}. 
+. reshape long cb049 cb051_1 cb052_2 cb052 cb059 cb060 cb064 cb069,i(householdID) j(individual)
+{txt}(note: j = 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 23 25)
+(note: cb0597 not found)
+(note: cb05910 not found)
+(note: cb05911 not found)
+(note: cb06011 not found)
+(note: cb06411 not found)
+(note: cb05912 not found)
+(note: cb06012 not found)
+(note: cb06412 not found)
+(note: cb05913 not found)
+(note: cb06013 not found)
+(note: cb06413 not found)
+(note: cb05914 not found)
+(note: cb06014 not found)
+(note: cb06414 not found)
+(note: cb04915 not found)
+(note: cb051_115 not found)
+(note: cb052_215 not found)
+(note: cb05215 not found)
+(note: cb05915 not found)
+(note: cb06015 not found)
+(note: cb06415 not found)
+(note: cb04923 not found)
+(note: cb051_123 not found)
+(note: cb052_223 not found)
+(note: cb05223 not found)
+(note: cb05923 not found)
+(note: cb06023 not found)
+(note: cb06423 not found)
+(note: cb04925 not found)
+(note: cb051_125 not found)
+(note: cb052_225 not found)
+(note: cb05225 not found)
+(note: cb05925 not found)
+(note: cb06025 not found)
+(note: cb06425 not found)
+
+Data{col 36}wide{col 43}->{col 48}long
+{hline 77}
+Number of obs.                 {res}   10199   {txt}->{res}  173383
+{txt}Number of variables            {res}     104   {txt}->{res}      12
+{txt}j variable (17 values)                    ->   {res}individual
+{txt}xij variables:
+              {res}cb0491 cb0492 ... cb04925   {txt}->   {res}cb049
+        cb051_11 cb051_12 ... cb051_125   {txt}->   {res}cb051_1
+        cb052_21 cb052_22 ... cb052_225   {txt}->   {res}cb052_2
+              cb0521 cb0522 ... cb05225   {txt}->   {res}cb052
+              cb0591 cb0592 ... cb05925   {txt}->   {res}cb059
+              cb0601 cb0602 ... cb06025   {txt}->   {res}cb060
+              cb0641 cb0642 ... cb06425   {txt}->   {res}cb064
+              cb0691 cb0692 ... cb06925   {txt}->   {res}cb069
+{txt}{hline 77}
+
+{com}. rename cb049 female
+{res}{txt}
+{com}. rename cb051_1 year
+{res}{txt}
+{com}. rename cb052_2 month
+{res}{txt}
+{com}. rename cb052 lunar
+{res}{txt}
+{com}. rename cb060 highesteducation
+{res}{txt}
+{com}. rename cb059 currenteducation
+{res}{txt}
+{com}. rename cb069 childincome
+{res}{txt}
+{com}. rename cb064 financialsupport
+{res}{txt}
+{com}. gen relationship=.
+{txt}(173,383 missing values generated)
+
+{com}. gen inhome=0
+{txt}
+{com}. order female year month highesteducation currenteducation financialsupport childincome lunar inhome relationship
+{txt}
+{com}. replace individual=individual+25
+{txt}(173,383 real changes made)
+
+{com}. save "nonResident.dta"  ,replace
+{txt}file nonResident.dta saved
+
+{com}. save m1,replace
+{txt}file m1.dta saved
+
+{com}. * family information for resident
+. use "$data\charls11\household_roster.dta"                
+{txt}
+{com}. keep  householdID ID communityID a002_1_ a002_2_ a002_3_ a002_4_ a002_5_ a002_6_ a002_7_ a002_8_ a002_9_ a002_10_ a002_11_ a002_12_ a002_13_ a002_14_ a002_15_ a002_16_ a003_1_1_ a003_1_2_ a003_1_3_ a003_1_4_ a003_1_5_ a003_1_6_ a003_1_7_ a003_1_8_ a003_1_9_ a003_1_10_ a003_1_11_ a003_1_12_ a003_1_13_ a003_1_14_ a003_1_15_ a003_1_16_ a003_2_1_ a003_2_2_ a003_2_3_ a003_2_4_ a003_2_5_ a003_2_6_ a003_2_7_ a003_2_8_ a003_2_9_ a003_2_10_ a003_2_11_ a003_2_12_ a003_2_13_ a003_2_14_ a003_2_15_ a003_2_16_ a014_1_ a014_2_ a014_3_ a014_4_ a014_5_ a014_6_ a014_7_ a014_8_ a014_9_ a014_10_ a014_11_ a014_12_ a014_13_ a015_1_ a015_2_ a015_3_ a015_4_ a015_5_ a015_6_ a015_7_ a015_8_ a015_9_ a015_10_ a015_11_ a015_12_ a015_13_ a015_14_ a015_15_ a015_16_ ///
+>        a006_1_ a006_2_ a006_3_ a006_4_ a006_5_ a006_6_ a006_7_ a006_8_ a006_9_ a006_10_ a006_11_ a006_12_ a006_13_ a006_14_ a006_15_ a006_16_
+{txt}
+{com}. forvalues i=1/16{c -(}
+{txt}  2{com}. rename a002_`i'_ a002`i'
+{txt}  3{com}. rename a003_1_`i'_ a003_1`i'
+{txt}  4{com}. rename a003_2_`i'_ a003_2`i'
+{txt}  5{com}. rename a015_`i'_ a015`i'
+{txt}  6{com}. rename a006_`i'_ a006`i'
+{txt}  7{com}. {c )-}
+{res}{txt}
+{com}. forvalues i=1/13{c -(}
+{txt}  2{com}. rename a014_`i'_ a014`i'
+{txt}  3{com}. {c )-}
+{res}{txt}
+{com}. reshape long a002 a006 a003_1 a003_2 a014 a015,i(householdID) j(individual)
+{txt}(note: j = 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16)
+(note: a01414 not found)
+(note: a01415 not found)
+(note: a01416 not found)
+
+Data{col 36}wide{col 43}->{col 48}long
+{hline 77}
+Number of obs.                 {res}   10229   {txt}->{res}  163664
+{txt}Number of variables            {res}      96   {txt}->{res}      10
+{txt}j variable (16 values)                    ->   {res}individual
+{txt}xij variables:
+                 {res}a0021 a0022 ... a00216   {txt}->   {res}a002
+                 a0061 a0062 ... a00616   {txt}->   {res}a006
+           a003_11 a003_12 ... a003_116   {txt}->   {res}a003_1
+           a003_21 a003_22 ... a003_216   {txt}->   {res}a003_2
+                 a0141 a0142 ... a01416   {txt}->   {res}a014
+                 a0151 a0152 ... a01516   {txt}->   {res}a015
+{txt}{hline 77}
+
+{com}. rename a002 female
+{res}{txt}
+{com}. rename a003_1 year
+{res}{txt}
+{com}. rename a003_2 month
+{res}{txt}
+{com}. rename a006  relationship
+{res}{txt}
+{com}. rename a014  currenteducation
+{res}{txt}
+{com}. rename a015  highesteducation
+{res}{txt}
+{com}. gen lunar=.
+{txt}(163,664 missing values generated)
+
+{com}. gen inhome=1
+{txt}
+{com}. gen childincome=.
+{txt}(163,664 missing values generated)
+
+{com}. gen financialsupport=.
+{txt}(163,664 missing values generated)
+
+{com}. order female year month highesteducation currenteducation financialsupport childincome lunar inhome relationship
+{txt}
+{com}. save "resident.dta",replace
+{txt}file resident.dta saved
+
+{com}. use "resident.dta", clear
+{txt}
+{com}. keep if relationship==7
+{txt}(155,702 observations deleted)
+
+{com}. save m2,replace
+{txt}file m2.dta saved
+
+{com}. 
+. append using m1
+{txt}{p 0 7 2}
+(note: variable
+financialsupport was 
+float, now double to accommodate using data's values)
+{p_end}
+{p 0 7 2}
+(note: variable
+relationship was 
+byte, now float to accommodate using data's values)
+{p_end}
+
+{com}. 
+. save "resident&nonresident",replace
+{txt}file resident&nonresident.dta saved
+
+{com}. sort householdID
+{txt}
+{com}. replace month=month+1 if lunar==2
+{txt}(16,056 real changes made, 369 to missing)
+
+{com}. replace year=year+1 if month==13
+{txt}(1,260 real changes made)
+
+{com}. replace month=1 if month==13
+{txt}(1,260 real changes made)
+
+{com}. drop if female==.
+{txt}(154,005 observations deleted)
+
+{com}. save "resident&nonresident",replace
+{txt}file resident&nonresident.dta saved
+
+{com}. replace female=0 if female==1
+{txt}(14,540 real changes made)
+
+{com}. replace female=1 if female==2
+{txt}(12,732 real changes made)
+
+{com}. drop if female==.
+{txt}(0 observations deleted)
+
+{com}. keep if female==0
+{txt}(12,800 observations deleted)
+
+{com}. drop month highesteducation female currenteducation financialsupport childincome lunar inhome relationship
+{txt}
+{com}. reshape wide  year,i(householdID) j(individual)
+{txt}(note: j = 1 2 3 4 5 6 7 8 9 10 11 12 13 14 26 27 28 29 30 31 32 33 34 35)
+
+Data{col 36}long{col 43}->{col 48}wide
+{hline 77}
+Number of obs.                 {res}   14540   {txt}->{res}    8538
+{txt}Number of variables            {res}       5   {txt}->{res}      27
+{txt}j variable (24 values)       {res}individual   {txt}->   (dropped)
+xij variables:
+                                   {res}year   {txt}->   {res}year1 year2 ... year35
+{txt}{hline 77}
+
+{com}. save "allboys", replace
+{txt}file allboys.dta saved
+
+{com}. save m2,replace
+{txt}file m2.dta saved
+
+{com}. use "resident&nonresident"
+{txt}
+{com}. save m1,replace
+{txt}file m1.dta saved
+
+{com}. use m2
+{txt}
+{com}. use m1
+{txt}
+{com}. merge m:1 householdID using m2
+{res}
+{txt}{col 5}Result{col 38}# of obs.
+{col 5}{hline 41}
+{col 5}not matched{col 30}{res}           2,496
+{txt}{col 9}from master{col 30}{res}           2,496{txt}  (_merge==1)
+{col 9}from using{col 30}{res}               0{txt}  (_merge==2)
+
+{col 5}matched{col 30}{res}          24,844{txt}  (_merge==3)
+{col 5}{hline 41}
+
+{com}. keep if _merge==3
+{txt}(2,496 observations deleted)
+
+{com}. drop _merge
+{txt}
+{com}. save "allwithboymatch",replace
+{txt}file allwithboymatch.dta saved
+
+{com}.  
+.  use "allwithboymatch
+{txt}
+{com}.  foreach v of varlist year1-year35{c -(}
+{txt}  2{com}.  gen W`v'=year-`v'
+{txt}  3{com}.  {c )-}
+{txt}(23,421 missing values generated)
+(22,668 missing values generated)
+(17,996 missing values generated)
+(22,476 missing values generated)
+(23,556 missing values generated)
+(24,215 missing values generated)
+(24,540 missing values generated)
+(24,719 missing values generated)
+(24,767 missing values generated)
+(24,828 missing values generated)
+(24,834 missing values generated)
+(24,827 missing values generated)
+(24,838 missing values generated)
+(24,834 missing values generated)
+(17,487 missing values generated)
+(14,571 missing values generated)
+(17,987 missing values generated)
+(21,080 missing values generated)
+(23,112 missing values generated)
+(24,085 missing values generated)
+(24,490 missing values generated)
+(24,739 missing values generated)
+(24,797 missing values generated)
+(24,834 missing values generated)
+
+{com}.  drop year1-year35
+{txt}
+{com}.  sort householdID
+{txt}
+{com}. egen max=rowmax(Wyear1-Wyear35 )
+{txt}(948 missing values generated)
+
+{com}. egen min=rowmin(Wyear1-Wyear35 )
+{txt}(948 missing values generated)
+
+{com}. egen mean=rowmean(Wyear1-Wyear35)
+{txt}(948 missing values generated)
+
+{com}. save "allwithdistancebornwithboy",replace
+{txt}file allwithdistancebornwithboy.dta saved
+
+{com}. clear
+{txt}
+{com}. use "allwithdistancebornwithboy"
+{txt}
+{com}. 
+. foreach v of varlist Wyear1-Wyear35{c -(}
+{txt}  2{com}. gen X`v'=`v'
+{txt}  3{com}. {c )-}
+{txt}(23,421 missing values generated)
+(22,668 missing values generated)
+(17,996 missing values generated)
+(22,476 missing values generated)
+(23,556 missing values generated)
+(24,215 missing values generated)
+(24,540 missing values generated)
+(24,719 missing values generated)
+(24,767 missing values generated)
+(24,828 missing values generated)
+(24,834 missing values generated)
+(24,827 missing values generated)
+(24,838 missing values generated)
+(24,834 missing values generated)
+(17,487 missing values generated)
+(14,571 missing values generated)
+(17,987 missing values generated)
+(21,080 missing values generated)
+(23,112 missing values generated)
+(24,085 missing values generated)
+(24,490 missing values generated)
+(24,739 missing values generated)
+(24,797 missing values generated)
+(24,834 missing values generated)
+
+{com}. 
+. foreach v of varlist Wyear1-Wyear35{c -(}
+{txt}  2{com}. replace `v'=. if `v'==0
+{txt}  3{com}. {c )-}
+{txt}(451 real changes made, 451 to missing)
+(785 real changes made, 785 to missing)
+(2,898 real changes made, 2,898 to missing)
+(933 real changes made, 933 to missing)
+(443 real changes made, 443 to missing)
+(213 real changes made, 213 to missing)
+(94 real changes made, 94 to missing)
+(39 real changes made, 39 to missing)
+(22 real changes made, 22 to missing)
+(5 real changes made, 5 to missing)
+(3 real changes made, 3 to missing)
+(5 real changes made, 5 to missing)
+(1 real change made, 1 to missing)
+(3 real changes made, 3 to missing)
+(2,555 real changes made, 2,555 to missing)
+(3,215 real changes made, 3,215 to missing)
+(1,776 real changes made, 1,776 to missing)
+(835 real changes made, 835 to missing)
+(339 real changes made, 339 to missing)
+(132 real changes made, 132 to missing)
+(56 real changes made, 56 to missing)
+(15 real changes made, 15 to missing)
+(7 real changes made, 7 to missing)
+(1 real change made, 1 to missing)
+
+{com}. 
+. foreach v of varlist Wyear1-Wyear35{c -(}
+{txt}  2{com}. replace `v'=-`v' if `v'<0
+{txt}  3{com}. {c )-}
+{txt}(579 real changes made)
+(849 real changes made)
+(2,301 real changes made)
+(1,000 real changes made)
+(618 real changes made)
+(309 real changes made)
+(144 real changes made)
+(61 real changes made)
+(38 real changes made)
+(6 real changes made)
+(5 real changes made)
+(7 real changes made)
+(2 real changes made)
+(5 real changes made)
+(757 real changes made)
+(3,041 real changes made)
+(3,128 real changes made)
+(2,089 real changes made)
+(1,048 real changes made)
+(465 real changes made)
+(210 real changes made)
+(74 real changes made)
+(34 real changes made)
+(8 real changes made)
+
+{com}. egen Min=rowmin(Wyear1-Wyear35)
+{txt}(5723 missing values generated)
+
+{com}. 
+. forvalues i=1/14{c -(}
+{txt}  2{com}. gen min`i'=Min
+{txt}  3{com}. {c )-}
+{txt}(5,723 missing values generated)
+(5,723 missing values generated)
+(5,723 missing values generated)
+(5,723 missing values generated)
+(5,723 missing values generated)
+(5,723 missing values generated)
+(5,723 missing values generated)
+(5,723 missing values generated)
+(5,723 missing values generated)
+(5,723 missing values generated)
+(5,723 missing values generated)
+(5,723 missing values generated)
+(5,723 missing values generated)
+(5,723 missing values generated)
+
+{com}. forvalues i=26/35{c -(}
+{txt}  2{com}. gen min`i'=Min
+{txt}  3{com}. {c )-}
+{txt}(5,723 missing values generated)
+(5,723 missing values generated)
+(5,723 missing values generated)
+(5,723 missing values generated)
+(5,723 missing values generated)
+(5,723 missing values generated)
+(5,723 missing values generated)
+(5,723 missing values generated)
+(5,723 missing values generated)
+(5,723 missing values generated)
+
+{com}. gen id=_n
+{txt}
+{com}. drop min max mean Wyear1-Wyear35
+{txt}
+{com}. save "allwithdistancebornwithboy",replace
+{txt}file allwithdistancebornwithboy.dta saved
+
+{com}. use "allwithdistancebornwithboy"
+{txt}
+{com}. foreach v of varlist XWyear1-XWyear35{c -(}
+{txt}  2{com}. replace `v'=. if `v'==0
+{txt}  3{com}. {c )-}
+{txt}(451 real changes made, 451 to missing)
+(785 real changes made, 785 to missing)
+(2,898 real changes made, 2,898 to missing)
+(933 real changes made, 933 to missing)
+(443 real changes made, 443 to missing)
+(213 real changes made, 213 to missing)
+(94 real changes made, 94 to missing)
+(39 real changes made, 39 to missing)
+(22 real changes made, 22 to missing)
+(5 real changes made, 5 to missing)
+(3 real changes made, 3 to missing)
+(5 real changes made, 5 to missing)
+(1 real change made, 1 to missing)
+(3 real changes made, 3 to missing)
+(2,555 real changes made, 2,555 to missing)
+(3,215 real changes made, 3,215 to missing)
+(1,776 real changes made, 1,776 to missing)
+(835 real changes made, 835 to missing)
+(339 real changes made, 339 to missing)
+(132 real changes made, 132 to missing)
+(56 real changes made, 56 to missing)
+(15 real changes made, 15 to missing)
+(7 real changes made, 7 to missing)
+(1 real change made, 1 to missing)
+
+{com}. reshape long XWyear min,i(id) j(time)
+{txt}(note: j = 1 2 3 4 5 6 7 8 9 10 11 12 13 14 26 27 28 29 30 31 32 33 34 35)
+
+Data{col 36}wide{col 43}->{col 48}long
+{hline 77}
+Number of obs.                 {res}   24844   {txt}->{res}  596256
+{txt}Number of variables            {res}      64   {txt}->{res}      19
+{txt}j variable (24 values)                    ->   {res}time
+{txt}xij variables:
+           {res}XWyear1 XWyear2 ... XWyear35   {txt}->   {res}XWyear
+                    min1 min2 ... min35   {txt}->   {res}min
+{txt}{hline 77}
+
+{com}. gen k=1 if XWyear==min & XWyear !=. & min !=.
+{txt}(586,929 missing values generated)
+
+{com}. replace k=0 if XWyear==-min & XWyear !=. & min !=.
+{txt}(10,632 real changes made)
+
+{com}. bysort id: egen g=max(k)
+{txt}(137352 missing values generated)
+
+{com}. save "longallwithboys",replace
+{txt}file longallwithboys.dta saved
+
+{com}. duplicates drop id ,force
+
+{p 0 4}{txt}Duplicates in terms of {res} id{p_end}
+
+{txt}(571,412 observations deleted)
+
+{com}. keep id g
+{txt}
+{com}. save m1,replace
+{txt}file m1.dta saved
+
+{com}. use m1
+{txt}
+{com}. use "allwithdistancebornwithboy"
+{txt}
+{com}. merge 1:1 id using m1
+{res}
+{txt}{col 5}Result{col 38}# of obs.
+{col 5}{hline 41}
+{col 5}not matched{col 30}{res}               0
+{txt}{col 5}matched{col 30}{res}          24,844{txt}  (_merge==3)
+{col 5}{hline 41}
+
+{com}. replace Min=-Min if g==0
+{txt}(9,904 real changes made)
+
+{com}. rename Min distanceborn
+{res}{txt}
+{com}. drop min1-min35
+{txt}
+{com}. drop _merge g
+{txt}
+{com}. replace female=0 if female==1
+{txt}(14,540 real changes made)
+
+{com}. replace female=1 if female==2
+{txt}(10,261 real changes made)
+
+{com}. save "allwithtruedistance",replace
+{txt}file allwithtruedistance.dta saved
+
+{com}. 
+. 
+. use "allwithtruedistance"
+{txt}
+{com}. reshape long XWyear, i(id) j(time)
+{txt}(note: j = 1 2 3 4 5 6 7 8 9 10 11 12 13 14 26 27 28 29 30 31 32 33 34 35)
+
+Data{col 36}wide{col 43}->{col 48}long
+{hline 77}
+Number of obs.                 {res}   24844   {txt}->{res}  596256
+{txt}Number of variables            {res}      40   {txt}->{res}      18
+{txt}j variable (24 values)                    ->   {res}time
+{txt}xij variables:
+           {res}XWyear1 XWyear2 ... XWyear35   {txt}->   {res}XWyear
+{txt}{hline 77}
+
+{com}. replace distanceborn=0 if XWyear==0
+{txt}(14,826 real changes made)
+
+{com}. keep if XWyear !=.
+{txt}(549,701 observations deleted)
+
+{com}. sort householdID
+{txt}
+{com}. gen id2=id
+{txt}
+{com}. save m1,replace
+{txt}file m1.dta saved
+
+{com}. keep if distanceborn==0
+{txt}(31,729 observations deleted)
+
+{com}. save m2,replace
+{txt}file m2.dta saved
+
+{com}. sort id
+{txt}
+{com}. by id:egen n=count(id)
+{txt}
+{com}. drop id
+{txt}
+{com}. save m2,replace
+{txt}file m2.dta saved
+
+{com}. use m1
+{txt}
+{com}. drop if distanceborn ==0
+{txt}(14,826 observations deleted)
+
+{com}. keep if XWyear==distanceborn
+{txt}(12,327 observations deleted)
+
+{com}. drop id2
+{txt}
+{com}. save m3,replace
+{txt}file m3.dta saved
+
+{com}. use m2
+{txt}
+{com}. use m3
+{txt}
+{com}. merge m:m householdID time using m2
+{res}{txt}(label i549 already defined)
+(label i303 already defined)
+(label i195 already defined)
+
+{col 5}Result{col 38}# of obs.
+{col 5}{hline 41}
+{col 5}not matched{col 30}{res}           2,321
+{txt}{col 9}from master{col 30}{res}               0{txt}  (_merge==1)
+{col 9}from using{col 30}{res}           2,321{txt}  (_merge==2)
+
+{col 5}matched{col 30}{res}          19,690{txt}  (_merge==3)
+{col 5}{hline 41}
+
+{com}. save m4,replace
+{txt}file m4.dta saved
+
+{com}. sort id
+{txt}
+{com}. keep if _merge==3
+{txt}(2,321 observations deleted)
+
+{com}. drop _merge
+{txt}
+{com}. save m4,replace
+{txt}file m4.dta saved
+
+{com}. drop n
+{txt}
+{com}. bysort id:egen n=count(id)
+{txt}
+{com}. duplicates drop id time,force
+
+{p 0 4}{txt}Duplicates in terms of {res} id time{p_end}
+
+{txt}(288 observations deleted)
+
+{com}. drop n
+{txt}
+{com}. sort id
+{txt}
+{com}. by id:egen n=count(id)
+{txt}
+{com}. sort n
+{txt}
+{com}. duplicates drop id,force
+
+{p 0 4}{txt}Duplicates in terms of {res} id{p_end}
+
+{txt}(281 observations deleted)
+
+{com}. save m5,replace
+{txt}file m5.dta saved
+
+{com}. keep id2
+{txt}
+{com}. rename id2 id
+{res}{txt}
+{com}. duplicates drop id,force
+
+{p 0 4}{txt}Duplicates in terms of {res} id{p_end}
+
+{txt}(7,172 observations deleted)
+
+{com}. save m6,replace
+{txt}file m6.dta saved
+
+{com}. use m6
+{txt}
+{com}. use "allwithtruedistance"
+{txt}
+{com}. merge 1:1 id using m6
+{res}
+{txt}{col 5}Result{col 38}# of obs.
+{col 5}{hline 41}
+{col 5}not matched{col 30}{res}          12,895
+{txt}{col 9}from master{col 30}{res}          12,895{txt}  (_merge==1)
+{col 9}from using{col 30}{res}               0{txt}  (_merge==2)
+
+{col 5}matched{col 30}{res}          11,949{txt}  (_merge==3)
+{col 5}{hline 41}
+
+{com}. keep if _merge==3
+{txt}(12,895 observations deleted)
+
+{com}. drop _merge
+{txt}
+{com}. save m6,replace
+{txt}file m6.dta saved
+
+{com}. keep id highesteducation currenteducation
+{txt}
+{com}. rename highesteducation HighEdu
+{res}{txt}
+{com}. rename currenteducation CurrenEdu
+{res}{txt}
+{com}. rename id id2
+{res}{txt}
+{com}. save m7,replace
+{txt}file m7.dta saved
+
+{com}. use m7
+{txt}
+{com}. use m4
+{txt}
+{com}. merge m:1 id2 using m7
+{res}{txt}(label i549 already defined)
+
+{col 5}Result{col 38}# of obs.
+{col 5}{hline 41}
+{col 5}not matched{col 30}{res}             315
+{txt}{col 9}from master{col 30}{res}             315{txt}  (_merge==1)
+{col 9}from using{col 30}{res}               0{txt}  (_merge==2)
+
+{col 5}matched{col 30}{res}          19,375{txt}  (_merge==3)
+{col 5}{hline 41}
+
+{com}. gen Eduboy=max(HighEdu, CurrenEdu)
+{txt}(475 missing values generated)
+
+{com}. gen Eduself=max(highesteducation, currenteducation)
+{txt}(151 missing values generated)
+
+{com}. keep if _merge==3
+{txt}(315 observations deleted)
+
+{com}. drop _merge
+{txt}
+{com}. save "all-referenceboyeducation",replace
+{txt}file all-referenceboyeducation.dta saved
+
+{com}. use "allwithtruedistance"
+{txt}
+{com}. reshape long XWyear, i(id) j(time)
+{txt}(note: j = 1 2 3 4 5 6 7 8 9 10 11 12 13 14 26 27 28 29 30 31 32 33 34 35)
+
+Data{col 36}wide{col 43}->{col 48}long
+{hline 77}
+Number of obs.                 {res}   24844   {txt}->{res}  596256
+{txt}Number of variables            {res}      40   {txt}->{res}      18
+{txt}j variable (24 values)                    ->   {res}time
+{txt}xij variables:
+           {res}XWyear1 XWyear2 ... XWyear35   {txt}->   {res}XWyear
+{txt}{hline 77}
+
+{com}. replace distanceborn=0 if XWyear==0
+{txt}(14,826 real changes made)
+
+{com}. by id:egen d=max(distanceborn)
+{txt}(22752 missing values generated)
+
+{com}. drop distanceborn
+{txt}
+{com}. rename d distanceborn
+{res}{txt}
+{com}. reshape wide XWyear, i(id) j(time)
+{txt}(note: j = 1 2 3 4 5 6 7 8 9 10 11 12 13 14 26 27 28 29 30 31 32 33 34 35)
+
+Data{col 36}long{col 43}->{col 48}wide
+{hline 77}
+Number of obs.                 {res}  596256   {txt}->{res}   24844
+{txt}Number of variables            {res}      18   {txt}->{res}      40
+{txt}j variable (24 values)             {res}time   {txt}->   (dropped)
+xij variables:
+                                 {res}XWyear   {txt}->   {res}XWyear1 XWyear2 ... XWyear35
+{txt}{hline 77}
+
+{com}. save "allwithtruedistance",replace
+{txt}file allwithtruedistance.dta saved
+
+{com}. ********************************
+. * data management
+. use "allwithtruedistance.dta", clear
+{txt}
+{com}. merge m:1 householdID using "parent.dta"
+{res}
+{txt}{col 5}Result{col 38}# of obs.
+{col 5}{hline 41}
+{col 5}not matched{col 30}{res}           1,713
+{txt}{col 9}from master{col 30}{res}               0{txt}  (_merge==1)
+{col 9}from using{col 30}{res}           1,713{txt}  (_merge==2)
+
+{col 5}matched{col 30}{res}          24,844{txt}  (_merge==3)
+{col 5}{hline 41}
+
+{com}. drop _merge
+{txt}
+{com}. tab highesteducation, mi
+
+                       {txt}highesteducation {c |}      Freq.     Percent        Cum.
+{hline 40}{c +}{hline 35}
+       1 No formal education illiterate {c |}{res}      1,611        6.07        6.07
+{txt}2 Did not finish primary school but cap {c |}{res}      2,395        9.02       15.08
+{txt}                    3 Sishu/home school {c |}{res}         13        0.05       15.13
+{txt}      4 Graduate from elementary school {c |}{res}      5,635       21.22       36.35
+{txt}          5 Graduate from middle school {c |}{res}      8,259       31.10       67.45
+{txt}            6 Graduate from high school {c |}{res}      2,003        7.54       74.99
+{txt}      7 Graduate from vocational school {c |}{res}      1,297        4.88       79.88
+{txt}8 Graduate from Two/Three Year College  {c |}{res}      1,096        4.13       84.00
+{txt}9 Graduate from Four Year College / Bac {c |}{res}      1,009        3.80       87.80
+{txt}10 Graduate from Post-graduate, Masters {c |}{res}         97        0.37       88.17
+{txt}11 Graduate from Post-graduate, Doctora {c |}{res}         18        0.07       88.24
+{txt}                                      . {c |}{res}      3,030       11.41       99.65
+{txt}                                     .d {c |}{res}         92        0.35       99.99
+{txt}                                     .e {c |}{res}          1        0.00      100.00
+{txt}                                     .r {c |}{res}          1        0.00      100.00
+{txt}{hline 40}{c +}{hline 35}
+                                  Total {c |}{res}     26,557      100.00
+{txt}
+{com}. recode highesteducation (1=0) (2/3=1) (4=2) (5=3) (6=4) (7/11=5), gen(highestEdu)
+{txt}(23433 differences between highesteducation and highestEdu)
+
+{com}. recode currenteducation (1/4=1) (5/6=2) (7/10=3) (11/13=4) (14/24=5), gen(currentEdu)
+{txt}(1084 differences between currenteducation and currentEdu)
+
+{com}. bysort householdID: gen siblings = _N
+{txt}
+{com}. sort householdID year month, stable
+{txt}
+{com}. bysort householdID: gen birthOrder = _n
+{txt}
+{com}. bysort householdID: egen totalFemale = sum(female)
+{txt}
+{com}. gen totalMale = siblings - totalFemale
+{txt}
+{com}. drop individual highesteducation currenteducation ///
+>                 XWyear1-XWyear35 relationship financialsupport lunar
+{txt}
+{com}. 
+. * drop unqualified observations
+. drop if mi(highestEdu)&mi(currentEdu)
+{txt}(2,035 observations deleted)
+
+{com}. 
+. preserve
+{txt}
+{com}.         keep if year >= 1965 & year <= 1990
+{txt}(5,698 observations deleted)
+
+{com}.         collapse highestEdu, by(year female)
+{txt}
+{com}.         twoway (scatter highestEdu year if female == 0, lcolor("93 188 210") mcolor("93 188 210") msymbol(s) connect(1)) ///
+>                         (scatter highestEdu year if female == 1, lcolor("139 0 18") mcolor("139 0 18") msymbol(t) connect(1)),  ///
+>                         ytitle("Mean Education Level") xtitle("Birth Year") graphregion(color(white)) ///
+>                         ylabel(1.5(0.5)3.5) ymtick(##1) xmtick(##5) ///
+>                         legend(label(1 "Male") label(2 "Female") region(lcolor(white))) scheme(s1)  
+{txt}(note: scheme s1 not found, using s2color)
+{p 0 4 2}
+{txt}(note:  named style
+1 not found in class
+connectstyle,  default attributes used)
+{p_end}
+{p 0 4 2}
+{txt}(note:  named style
+1 not found in class
+connectstyle,  default attributes used)
+{p_end}
+{res}{txt}
+{com}.         graph export "meanEdu.pdf", replace             
+{txt}(file meanEdu.pdf written in PDF format)
+
+{com}. restore
+{txt}
+{com}. * regression
+. 
+{txt}end of do-file
+
+{com}. des
+
+{txt}Contains data from {res}allwithtruedistance.dta
+{txt}  obs:{res}        24,522                          
+{txt} vars:{res}            20                          4 Apr 2017 11:06
+{txt} size:{res}     1,839,150                          
+{txt}{hline}
+              storage   display    value
+variable name   type    format     label      variable label
+{hline}
+{p 0 48}{res}{bind:id             }{txt}{bind: float   }{bind:{txt}%9.0g     }{space 1}{bind:         }{bind:  }{res}{res}{p_end}
+{p 0 48}{bind:female         }{txt}{bind: byte    }{bind:{txt}%1.0f     }{space 1}{bind:i195     }{bind:  }{res}{res}{p_end}
+{p 0 48}{bind:year           }{txt}{bind: int     }{bind:{txt}%4.0f     }{space 1}{bind:         }{bind:  }{res}{res}{p_end}
+{p 0 48}{bind:month          }{txt}{bind: byte    }{bind:{txt}%1.0f     }{space 1}{bind:         }{bind:  }{res}{res}{p_end}
+{p 0 48}{bind:childincome    }{txt}{bind: float   }{bind:{txt}%9.0g     }{space 1}{bind:         }{bind:  }{res}{res}{p_end}
+{p 0 48}{bind:inhome         }{txt}{bind: float   }{bind:{txt}%9.0g     }{space 1}{bind:         }{bind:  }{res}{res}{p_end}
+{p 0 48}{bind:householdID    }{txt}{bind: str9    }{bind:{txt}%9s       }{space 1}{bind:         }{bind:  }{res}{res}Household ID{p_end}
+{p 0 48}{bind:ID             }{txt}{bind: str11   }{bind:{txt}%11s      }{space 1}{bind:         }{bind:  }{res}{res}Individual ID{p_end}
+{p 0 48}{bind:communityID    }{txt}{bind: str7    }{bind:{txt}%9s       }{space 1}{bind:         }{bind:  }{res}{res}Community ID{p_end}
+{p 0 48}{bind:distanceborn   }{txt}{bind: float   }{bind:{txt}%9.0g     }{space 1}{bind:         }{bind:  }{res}{res}{p_end}
+{p 0 48}{bind:urbanDad       }{txt}{bind: float   }{bind:{txt}%9.0g     }{space 1}{bind:         }{bind:  }{res}{res}0 urban{p_end}
+{p 0 48}{bind:eduDad         }{txt}{bind: byte    }{bind:{txt}%9.0g     }{space 1}{bind:         }{bind:  }{res}{res}0 edu{p_end}
+{p 0 48}{bind:urbanMom       }{txt}{bind: float   }{bind:{txt}%9.0g     }{space 1}{bind:         }{bind:  }{res}{res}1 urban{p_end}
+{p 0 48}{bind:eduMom         }{txt}{bind: byte    }{bind:{txt}%9.0g     }{space 1}{bind:         }{bind:  }{res}{res}1 edu{p_end}
+{p 0 48}{bind:highestEdu     }{txt}{bind: byte    }{bind:{txt}%9.0g     }{space 1}{bind:         }{bind:  }{res}{res}RECODE of highesteducation{p_end}
+{p 0 48}{bind:currentEdu     }{txt}{bind: byte    }{bind:{txt}%9.0g     }{space 1}{bind:         }{bind:  }{res}{res}RECODE of currenteducation{p_end}
+{p 0 48}{bind:siblings       }{txt}{bind: float   }{bind:{txt}%9.0g     }{space 1}{bind:         }{bind:  }{res}{res}{p_end}
+{p 0 48}{bind:birthOrder     }{txt}{bind: float   }{bind:{txt}%9.0g     }{space 1}{bind:         }{bind:  }{res}{res}{p_end}
+{p 0 48}{bind:totalFemale    }{txt}{bind: float   }{bind:{txt}%9.0g     }{space 1}{bind:         }{bind:  }{res}{res}{p_end}
+{p 0 48}{bind:totalMale      }{txt}{bind: float   }{bind:{txt}%9.0g     }{space 1}{bind:         }{bind:  }{res}{res}{p_end}
+{txt}{hline}
+Sorted by: {res}householdID  year  month
+     Note: Dataset has changed since last saved.
+
+{com}. do "C:\Users\zhangh52\AppData\Local\Temp\STD00000000.tmp"
+{txt}
+{com}. use "allwithtruedistance.dta", clear
+{txt}
+{com}. 
+{txt}end of do-file
+
+{com}. des
+
+{txt}Contains data from {res}allwithtruedistance.dta
+{txt}  obs:{res}        24,844                          
+{txt} vars:{res}            40                          4 Apr 2017 11:06
+{txt} size:{res}     4,024,728                          
+{txt}{hline}
+              storage   display    value
+variable name   type    format     label      variable label
+{hline}
+{p 0 48}{res}{bind:id             }{txt}{bind: float   }{bind:{txt}%9.0g     }{space 1}{bind:         }{bind:  }{res}{res}{p_end}
+{p 0 48}{bind:XWyear1        }{txt}{bind: float   }{bind:{txt}%9.0g     }{space 1}{bind:         }{bind:  }{res}{res}1 XWyear{p_end}
+{p 0 48}{bind:XWyear2        }{txt}{bind: float   }{bind:{txt}%9.0g     }{space 1}{bind:         }{bind:  }{res}{res}2 XWyear{p_end}
+{p 0 48}{bind:XWyear3        }{txt}{bind: float   }{bind:{txt}%9.0g     }{space 1}{bind:         }{bind:  }{res}{res}3 XWyear{p_end}
+{p 0 48}{bind:XWyear4        }{txt}{bind: float   }{bind:{txt}%9.0g     }{space 1}{bind:         }{bind:  }{res}{res}4 XWyear{p_end}
+{p 0 48}{bind:XWyear5        }{txt}{bind: float   }{bind:{txt}%9.0g     }{space 1}{bind:         }{bind:  }{res}{res}5 XWyear{p_end}
+{p 0 48}{bind:XWyear6        }{txt}{bind: float   }{bind:{txt}%9.0g     }{space 1}{bind:         }{bind:  }{res}{res}6 XWyear{p_end}
+{p 0 48}{bind:XWyear7        }{txt}{bind: float   }{bind:{txt}%9.0g     }{space 1}{bind:         }{bind:  }{res}{res}7 XWyear{p_end}
+{p 0 48}{bind:XWyear8        }{txt}{bind: float   }{bind:{txt}%9.0g     }{space 1}{bind:         }{bind:  }{res}{res}8 XWyear{p_end}
+{p 0 48}{bind:XWyear9        }{txt}{bind: float   }{bind:{txt}%9.0g     }{space 1}{bind:         }{bind:  }{res}{res}9 XWyear{p_end}
+{p 0 48}{bind:XWyear10       }{txt}{bind: float   }{bind:{txt}%9.0g     }{space 1}{bind:         }{bind:  }{res}{res}10 XWyear{p_end}
+{p 0 48}{bind:XWyear11       }{txt}{bind: float   }{bind:{txt}%9.0g     }{space 1}{bind:         }{bind:  }{res}{res}11 XWyear{p_end}
+{p 0 48}{bind:XWyear12       }{txt}{bind: float   }{bind:{txt}%9.0g     }{space 1}{bind:         }{bind:  }{res}{res}12 XWyear{p_end}
+{p 0 48}{bind:XWyear13       }{txt}{bind: float   }{bind:{txt}%9.0g     }{space 1}{bind:         }{bind:  }{res}{res}13 XWyear{p_end}
+{p 0 48}{bind:XWyear14       }{txt}{bind: float   }{bind:{txt}%9.0g     }{space 1}{bind:         }{bind:  }{res}{res}14 XWyear{p_end}
+{p 0 48}{bind:XWyear26       }{txt}{bind: float   }{bind:{txt}%9.0g     }{space 1}{bind:         }{bind:  }{res}{res}26 XWyear{p_end}
+{p 0 48}{bind:XWyear27       }{txt}{bind: float   }{bind:{txt}%9.0g     }{space 1}{bind:         }{bind:  }{res}{res}27 XWyear{p_end}
+{p 0 48}{bind:XWyear28       }{txt}{bind: float   }{bind:{txt}%9.0g     }{space 1}{bind:         }{bind:  }{res}{res}28 XWyear{p_end}
+{p 0 48}{bind:XWyear29       }{txt}{bind: float   }{bind:{txt}%9.0g     }{space 1}{bind:         }{bind:  }{res}{res}29 XWyear{p_end}
+{p 0 48}{bind:XWyear30       }{txt}{bind: float   }{bind:{txt}%9.0g     }{space 1}{bind:         }{bind:  }{res}{res}30 XWyear{p_end}
+{p 0 48}{bind:XWyear31       }{txt}{bind: float   }{bind:{txt}%9.0g     }{space 1}{bind:         }{bind:  }{res}{res}31 XWyear{p_end}
+{p 0 48}{bind:XWyear32       }{txt}{bind: float   }{bind:{txt}%9.0g     }{space 1}{bind:         }{bind:  }{res}{res}32 XWyear{p_end}
+{p 0 48}{bind:XWyear33       }{txt}{bind: float   }{bind:{txt}%9.0g     }{space 1}{bind:         }{bind:  }{res}{res}33 XWyear{p_end}
+{p 0 48}{bind:XWyear34       }{txt}{bind: float   }{bind:{txt}%9.0g     }{space 1}{bind:         }{bind:  }{res}{res}34 XWyear{p_end}
+{p 0 48}{bind:XWyear35       }{txt}{bind: float   }{bind:{txt}%9.0g     }{space 1}{bind:         }{bind:  }{res}{res}35 XWyear{p_end}
+{p 0 48}{bind:female         }{txt}{bind: byte    }{bind:{txt}%1.0f     }{space 1}{bind:i195     }{bind:  }{res}{res}{p_end}
+{p 0 48}{bind:year           }{txt}{bind: int     }{bind:{txt}%4.0f     }{space 1}{bind:         }{bind:  }{res}{res}{p_end}
+{p 0 48}{bind:month          }{txt}{bind: byte    }{bind:{txt}%1.0f     }{space 1}{bind:         }{bind:  }{res}{res}{p_end}
+{p 0 48}{bind:highesteducat~n}{txt}{bind: byte    }{bind:{txt}%1.0f     }{space 1}{bind:i549     }{bind:  }{res}{res}{p_end}
+{p 0 48}{bind:currenteducat~n}{txt}{bind: byte    }{bind:{txt}%8.0g     }{space 1}{bind:         }{bind:  }{res}{res}{p_end}
+{p 0 48}{bind:financialsupp~t}{txt}{bind: double  }{bind:{txt}%9.0g     }{space 1}{bind:         }{bind:  }{res}{res}{p_end}
+{p 0 48}{bind:childincome    }{txt}{bind: float   }{bind:{txt}%9.0g     }{space 1}{bind:         }{bind:  }{res}{res}{p_end}
+{p 0 48}{bind:lunar          }{txt}{bind: float   }{bind:{txt}%9.0g     }{space 1}{bind:         }{bind:  }{res}{res}{p_end}
+{p 0 48}{bind:inhome         }{txt}{bind: float   }{bind:{txt}%9.0g     }{space 1}{bind:         }{bind:  }{res}{res}{p_end}
+{p 0 48}{bind:relationship   }{txt}{bind: float   }{bind:{txt}%1.0f     }{space 1}{bind:i303     }{bind:  }{res}{res}{p_end}
+{p 0 48}{bind:householdID    }{txt}{bind: str9    }{bind:{txt}%9s       }{space 1}{bind:         }{bind:  }{res}{res}Household ID{p_end}
+{p 0 48}{bind:individual     }{txt}{bind: byte    }{bind:{txt}%9.0g     }{space 1}{bind:         }{bind:  }{res}{res}{p_end}
+{p 0 48}{bind:ID             }{txt}{bind: str11   }{bind:{txt}%11s      }{space 1}{bind:         }{bind:  }{res}{res}Individual ID{p_end}
+{p 0 48}{bind:communityID    }{txt}{bind: str7    }{bind:{txt}%9s       }{space 1}{bind:         }{bind:  }{res}{res}Community ID{p_end}
+{p 0 48}{bind:distanceborn   }{txt}{bind: float   }{bind:{txt}%9.0g     }{space 1}{bind:         }{bind:  }{res}{res}{p_end}
+{txt}{hline}
+Sorted by: {res}id
+
+{com}. do "C:\Users\zhangh52\AppData\Local\Temp\STD00000000.tmp"
+{txt}
+{com}. use "allwithtruedistance.dta", clear
+{txt}
+{com}. merge m:1 householdID using "parent.dta"
+{res}
+{txt}{col 5}Result{col 38}# of obs.
+{col 5}{hline 41}
+{col 5}not matched{col 30}{res}           1,713
+{txt}{col 9}from master{col 30}{res}               0{txt}  (_merge==1)
+{col 9}from using{col 30}{res}           1,713{txt}  (_merge==2)
+
+{col 5}matched{col 30}{res}          24,844{txt}  (_merge==3)
+{col 5}{hline 41}
+
+{com}. drop _merge
+{txt}
+{com}. tab highesteducation, mi
+
+                       {txt}highesteducation {c |}      Freq.     Percent        Cum.
+{hline 40}{c +}{hline 35}
+       1 No formal education illiterate {c |}{res}      1,611        6.07        6.07
+{txt}2 Did not finish primary school but cap {c |}{res}      2,395        9.02       15.08
+{txt}                    3 Sishu/home school {c |}{res}         13        0.05       15.13
+{txt}      4 Graduate from elementary school {c |}{res}      5,635       21.22       36.35
+{txt}          5 Graduate from middle school {c |}{res}      8,259       31.10       67.45
+{txt}            6 Graduate from high school {c |}{res}      2,003        7.54       74.99
+{txt}      7 Graduate from vocational school {c |}{res}      1,297        4.88       79.88
+{txt}8 Graduate from Two/Three Year College  {c |}{res}      1,096        4.13       84.00
+{txt}9 Graduate from Four Year College / Bac {c |}{res}      1,009        3.80       87.80
+{txt}10 Graduate from Post-graduate, Masters {c |}{res}         97        0.37       88.17
+{txt}11 Graduate from Post-graduate, Doctora {c |}{res}         18        0.07       88.24
+{txt}                                      . {c |}{res}      3,030       11.41       99.65
+{txt}                                     .d {c |}{res}         92        0.35       99.99
+{txt}                                     .e {c |}{res}          1        0.00      100.00
+{txt}                                     .r {c |}{res}          1        0.00      100.00
+{txt}{hline 40}{c +}{hline 35}
+                                  Total {c |}{res}     26,557      100.00
+{txt}
+{com}. recode highesteducation (1=0) (2/3=1) (4=2) (5=3) (6=4) (7/11=5), gen(highestEdu)
+{txt}(23433 differences between highesteducation and highestEdu)
+
+{com}. recode currenteducation (1/4=1) (5/6=2) (7/10=3) (11/13=4) (14/24=5), gen(currentEdu)
+{txt}(1084 differences between currenteducation and currentEdu)
+
+{com}. bysort householdID: gen siblings = _N
+{txt}
+{com}. sort householdID year month, stable
+{txt}
+{com}. bysort householdID: gen birthOrder = _n
+{txt}
+{com}. bysort householdID: egen totalFemale = sum(female)
+{txt}
+{com}. gen totalMale = siblings - totalFemale
+{txt}
+{com}. drop individual highesteducation currenteducation ///
+>                 XWyear1-XWyear35 relationship financialsupport lunar
+{txt}
+{com}.                 
+. save "analysis.dta", replace
+{txt}(note: file analysis.dta not found)
+file analysis.dta saved
+
+{com}. 
+{txt}end of do-file
+
+{com}. exit, clear
